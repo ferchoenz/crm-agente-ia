@@ -19,19 +19,15 @@
       <div class="login-branding">
         <div class="brand-content">
           <div class="logo-container">
-            <div class="logo-glow"></div>
-            <div class="logo-icon">
-              <SparklesIcon class="logo-spark" />
-            </div>
+            <img src="/logo-agentify.png" alt="Agentify Chat" class="brand-logo-img" />
           </div>
           
           <h1 class="brand-title">
-            <span class="title-line">CRM</span>
-            <span class="title-accent">Agente IA</span>
+            <span class="title-accent">Agentify Chat</span>
           </h1>
           
           <p class="brand-tagline">
-            Automatiza tus ventas con inteligencia artificial
+            CRM con IA para automatizar tus ventas
           </p>
 
           <div class="features-grid">
@@ -392,9 +388,13 @@ async function handleLogin() {
 
 .logo-container {
   position: relative;
-  width: 80px;
-  height: 80px;
   margin-bottom: 2rem;
+}
+
+.brand-logo-img {
+  height: 100px;
+  width: auto;
+  filter: drop-shadow(0 10px 20px rgba(0. 0, 0, 0.2));
 }
 
 .logo-glow {
