@@ -10,6 +10,13 @@ const routes = [
         meta: { guest: true }
     },
 
+    // Legal routes
+    {
+        path: '/privacy',
+        name: 'privacy',
+        component: () => import('@/views/legal/PrivacyPolicyView.vue')
+    },
+
     // Super Admin routes
     {
         path: '/superadmin',

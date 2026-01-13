@@ -156,6 +156,9 @@
         <!-- Footer Branding -->
         <div class="login-footer">
           <p>© {{ currentYear }} Todos los derechos reservados</p>
+          <div class="footer-links">
+            <router-link to="/privacy" class="footer-link">Política de Privacidad</router-link>
+          </div>
           <div class="powered-by">
             <span>Powered by</span>
             <a href="https://kogniastudio.com" target="_blank" class="kognia-brand">
@@ -830,6 +833,22 @@ async function handleLogin() {
 .kognia-icon {
   width: 14px;
   height: 14px;
+}
+
+.footer-links {
+  margin: 0.5rem 0;
+}
+
+.footer-link {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: #4f46e5;
+  text-decoration: underline;
 }
 
 /* Animations */
