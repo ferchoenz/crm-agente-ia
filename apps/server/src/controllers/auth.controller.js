@@ -7,7 +7,7 @@ import { body, validationResult } from 'express-validator';
  * Validation rules for login
  */
 export const loginValidation = [
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').isEmail().toLowerCase().trim().withMessage('Valid email is required'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ];
 
