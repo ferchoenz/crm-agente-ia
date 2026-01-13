@@ -1,0 +1,22 @@
+{
+  "name": "crm-agente-ia",
+  "version": "1.0.0",
+  "description": "CRM SaaS Multi-Tenant con Agente IA de Ventas para WhatsApp y Facebook",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
+    "dev:server": "pnpm --filter server dev",
+    "dev:client": "pnpm --filter client dev",
+    "build": "pnpm --filter client build",
+    "start": "pnpm --filter server start",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
