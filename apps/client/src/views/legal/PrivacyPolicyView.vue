@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/30 to-slate-100 py-12 px-4">
+  <div class="min-h-screen bg-[#f8f9fc] py-12 px-4">
     <div class="max-w-4xl mx-auto">
       <!-- Header with Logo -->
       <header class="text-center mb-12">
