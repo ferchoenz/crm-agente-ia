@@ -160,4 +160,79 @@ router.post('/facebook', async (req, res) => {
     }
 });
 
+/**
+ * Instagram webhook verification (GET)
+ * Instagram uses the same webhook URL as Facebook for simplicity
+ */
+router.get('/instagram', (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+
+    if (mode === 'subscribe' && token === verifyToken) {
+        logger.info('Instagram webhook verified');
+        return res.status(200).send(challenge);
+    }
+
+    logger.warn('Instagram webhook verification failed');
+    return res.sendStatus(403);
+});
+
+/**
+ * Instagram webhook handler (POST)
+ */
+router.post('/instagram', async (req, res) => {
+    try {
+        const { body } = req;
+
+        // Acknowledge receipt immediately
+        res.sendStatus(200);
+
+        if (body.object === 'instagram') {
+            const { processInstagramMessage } = await import('../services/messaging/instagram.service.js');
+
+            const entries = body.entry || [];
+
+            for (const entry of entries) {
+                const instagramAccountId = entry.id;
+                const messaging = entry.messaging || [];
+
+                for (const event of messaging) {
+                    const senderId = event.sender?.id;
+                    const timestamp = event.timestamp;
+
+                    if (event.message) {
+                        logger.info(`Processing Instagram message from ${senderId}`);
+
+                        try {
+                            await processInstagramMessage({
+                                instagramAccountId,
+                                senderId,
+                                message: event.message,
+                                timestamp
+                            });
+                        } catch (err) {
+                            logger.error('Instagram message processing failed:', err);
+                        }
+                    }
+
+                    // Handle story mentions
+                    if (event.story_mention) {
+                        logger.info(`Instagram story mention from ${senderId}`);
+                    }
+
+                    // Handle reactions
+                    if (event.reaction) {
+                        logger.debug(`Instagram reaction: ${event.reaction.action}`);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        logger.error('Instagram webhook error:', error);
+    }
+});
+
 export default router;

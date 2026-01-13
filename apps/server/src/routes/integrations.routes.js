@@ -376,4 +376,126 @@ router.patch('/messenger/channels/:id/settings', requireAdmin, async (req, res) 
     res.json({ channel });
 });
 
+// ==================== INSTAGRAM ====================
+
+/**
+ * Connect Instagram (save credentials)
+ */
+router.post('/instagram/connect', requireAdmin, async (req, res) => {
+    try {
+        const { instagramAccountId, username, name, pageId, accessToken } = req.body;
+
+        if (!instagramAccountId || !accessToken) {
+            return res.status(400).json({ error: 'Instagram account ID and access token are required' });
+        }
+
+        // Check if channel already exists
+        let channel = await Channel.findOne({
+            organization: req.user.organizationId,
+            type: 'instagram',
+            'instagram.accountId': instagramAccountId
+        });
+
+        if (channel) {
+            // Update existing
+            channel.credentials.accessToken = encrypt(accessToken);
+            channel.instagram = { accountId: instagramAccountId, username, name, pageId };
+            channel.status = 'active';
+            channel.statusMessage = 'Connected successfully';
+            channel.connectedAt = new Date();
+        } else {
+            // Create new
+            channel = new Channel({
+                organization: req.user.organizationId,
+                type: 'instagram',
+                name: name || `Instagram @${username}`,
+                instagram: { accountId: instagramAccountId, username, name, pageId },
+                credentials: {
+                    accessToken: encrypt(accessToken)
+                },
+                status: 'active',
+                statusMessage: 'Connected successfully',
+                connectedAt: new Date(),
+                settings: {
+                    aiEnabled: true,
+                    autoReply: true,
+                    greetingEnabled: true
+                }
+            });
+        }
+
+        await channel.save();
+
+        logger.info(`Instagram connected for org ${req.user.organizationId}: @${username}`);
+
+        res.json({
+            success: true,
+            channel: {
+                id: channel._id,
+                name: channel.name,
+                username: channel.instagram.username,
+                status: channel.status
+            }
+        });
+    } catch (error) {
+        logger.error('Instagram connect error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Get Instagram channels
+ */
+router.get('/instagram/channels', requireAdmin, async (req, res) => {
+    const channels = await Channel.find({
+        ...req.tenantFilter,
+        type: 'instagram'
+    }).select('name instagram.accountId instagram.username instagram.name status connectedAt settings stats');
+
+    res.json({ channels });
+});
+
+/**
+ * Disconnect Instagram channel
+ */
+router.delete('/instagram/channels/:id', requireAdmin, async (req, res) => {
+    const channel = await Channel.findOneAndUpdate(
+        { _id: req.params.id, ...req.tenantFilter, type: 'instagram' },
+        { status: 'disconnected', statusMessage: 'Disconnected by user' },
+        { new: true }
+    );
+
+    if (!channel) {
+        return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    res.json({ success: true });
+});
+
+/**
+ * Update Instagram channel settings
+ */
+router.patch('/instagram/channels/:id/settings', requireAdmin, async (req, res) => {
+    const { aiEnabled, autoReply, greetingEnabled, customGreeting } = req.body;
+
+    const channel = await Channel.findOneAndUpdate(
+        { _id: req.params.id, ...req.tenantFilter, type: 'instagram' },
+        {
+            $set: {
+                'settings.aiEnabled': aiEnabled,
+                'settings.autoReply': autoReply,
+                'settings.greetingEnabled': greetingEnabled,
+                'settings.customGreeting': customGreeting
+            }
+        },
+        { new: true }
+    );
+
+    if (!channel) {
+        return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    res.json({ channel });
+});
+
 export default router;

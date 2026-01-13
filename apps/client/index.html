@@ -23,6 +23,19 @@
 <body class="bg-surface-100 text-gray-900">
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
+
+  <!-- Facebook SDK -->
+  <script>
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: window.__FACEBOOK_APP_ID__,
+        cookie: true,
+        xfbml: true,
+        version: 'v18.0'
+      });
+    };
+  </script>
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
 </body>
 
 </html>

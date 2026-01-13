@@ -42,6 +42,20 @@ const channelSchema = new mongoose.Schema({
         }
     },
 
+    // Messenger specific
+    messenger: {
+        pageId: String,
+        pageName: String
+    },
+
+    // Instagram specific
+    instagram: {
+        accountId: String,
+        username: String,
+        name: String,
+        pageId: String
+    },
+
     // General credentials (encrypted)
     credentials: {
         accessToken: {

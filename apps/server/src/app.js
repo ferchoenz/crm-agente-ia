@@ -41,6 +41,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Public config (no auth needed)
+app.get('/api/config/public', (req, res) => {
+  res.json({
+    facebookAppId: process.env.FACEBOOK_APP_ID || '',
+    appName: 'Agentify Chat'
+  });
+});
+
 // API Routes
 app.use('/api', routes);
 

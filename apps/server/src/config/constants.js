@@ -44,6 +44,7 @@ export const PLAN_LIMITS = {
 export const CHANNEL_TYPES = {
     WHATSAPP: 'whatsapp',
     FACEBOOK: 'facebook',
+    MESSENGER: 'messenger',
     INSTAGRAM: 'instagram'
 };
 
