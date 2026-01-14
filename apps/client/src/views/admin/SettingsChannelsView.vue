@@ -600,7 +600,7 @@ async function connectFacebook() {
         connectingFacebook.value = false
       }
     }, {
-      scope: 'public_profile,email,pages_show_list,pages_messaging,pages_manage_metadata'
+      scope: 'public_profile,pages_show_list,pages_messaging,pages_manage_metadata'
     })
   } catch (error) {
     console.error('Facebook login error:', error)
@@ -673,7 +673,7 @@ async function connectInstagram() {
         connectingInstagram.value = false
       }
     }, {
-      scope: 'instagram_basic,instagram_manage_messages,pages_show_list,pages_messaging'
+      scope: 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_manage_comments'
     })
   } catch (error) {
     console.error('Instagram login error:', error)
