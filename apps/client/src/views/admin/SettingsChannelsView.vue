@@ -588,7 +588,7 @@ async function connectFacebook() {
         connectingFacebook.value = false
       }
     }, {
-      scope: 'pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement'
+      scope: 'pages_messaging,pages_show_list,pages_manage_metadata'
     })
   } catch (error) {
     console.error('Facebook login error:', error)
