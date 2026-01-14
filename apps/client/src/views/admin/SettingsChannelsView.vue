@@ -576,11 +576,20 @@ async function connectFacebook() {
         
         // Get list of pages
         FB.api('/me/accounts', { access_token: response.authResponse.accessToken }, function(pagesResponse) {
+          console.log('Facebook pages response:', pagesResponse)
+          
+          if (pagesResponse.error) {
+            console.error('Facebook API error:', pagesResponse.error)
+            alert('Error de Facebook: ' + pagesResponse.error.message)
+            connectingFacebook.value = false
+            return
+          }
+          
           if (pagesResponse.data && pagesResponse.data.length > 0) {
             availablePages.value = pagesResponse.data
             showPageSelector.value = true
           } else {
-            alert('No se encontraron páginas de Facebook. Asegúrate de ser administrador de al menos una página.')
+            alert('No se encontraron páginas de Facebook. Asegúrate de que la app tenga permisos sobre tus páginas.')
           }
           connectingFacebook.value = false
         })
