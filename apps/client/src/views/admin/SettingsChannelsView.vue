@@ -574,8 +574,11 @@ async function connectFacebook() {
       if (response.authResponse) {
         pendingAccessToken.value = response.authResponse.accessToken
         
-        // Get list of pages
-        FB.api('/me/accounts', { access_token: response.authResponse.accessToken }, function(pagesResponse) {
+        // Get list of pages with explicit fields
+        FB.api('/me/accounts', { 
+          fields: 'id,name,access_token,category',
+          access_token: response.authResponse.accessToken 
+        }, function(pagesResponse) {
           console.log('Facebook pages response:', pagesResponse)
           
           if (pagesResponse.error) {
@@ -589,7 +592,7 @@ async function connectFacebook() {
             availablePages.value = pagesResponse.data
             showPageSelector.value = true
           } else {
-            alert('No se encontraron páginas de Facebook. Asegúrate de que la app tenga permisos sobre tus páginas.')
+            alert('No se encontraron páginas. Ve a App Review en Meta Developer y verifica que "pages_show_list" esté aprobado o en "Ready to use".')
           }
           connectingFacebook.value = false
         })
@@ -597,7 +600,7 @@ async function connectFacebook() {
         connectingFacebook.value = false
       }
     }, {
-      scope: 'pages_messaging,pages_show_list,pages_manage_metadata'
+      scope: 'public_profile,email,pages_show_list,pages_messaging,pages_manage_metadata'
     })
   } catch (error) {
     console.error('Facebook login error:', error)
