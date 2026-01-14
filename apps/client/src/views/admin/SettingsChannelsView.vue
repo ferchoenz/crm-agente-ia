@@ -454,9 +454,21 @@ onMounted(async () => {
   // Set Facebook App ID for SDK
   try {
     const configResponse = await api.get('/config/public')
-    window.__FACEBOOK_APP_ID__ = configResponse.data.facebookAppId
+    const appId = configResponse.data.facebookAppId
+    window.__FACEBOOK_APP_ID__ = appId
+    
+    // Initialize Facebook SDK - wait for it to load
+    const initFB = () => {
+      if (typeof FB !== 'undefined' && window.initFacebookSDK) {
+        window.initFacebookSDK(appId)
+      } else {
+        // SDK not loaded yet, retry in 500ms
+        setTimeout(initFB, 500)
+      }
+    }
+    initFB()
   } catch (e) {
-    console.log('Could not load public config')
+    console.error('Could not load public config:', e)
   }
   
   await loadAllChannels()
@@ -551,9 +563,10 @@ async function connectFacebook() {
   connectingFacebook.value = true
   
   try {
-    // Check if FB SDK is loaded
-    if (typeof FB === 'undefined') {
-      alert('Facebook SDK no cargado. Recarga la página e intenta de nuevo.')
+    // Check if FB SDK is loaded and initialized
+    if (typeof FB === 'undefined' || !window.__FB_INITIALIZED__) {
+      alert('Facebook SDK no está listo. Espera un momento y vuelve a intentar.')
+      connectingFacebook.value = false
       return
     }
     
@@ -610,8 +623,9 @@ async function connectInstagram() {
   connectingInstagram.value = true
   
   try {
-    if (typeof FB === 'undefined') {
-      alert('Facebook SDK no cargado. Recarga la página e intenta de nuevo.')
+    if (typeof FB === 'undefined' || !window.__FB_INITIALIZED__) {
+      alert('Facebook SDK no está listo. Espera un momento y vuelve a intentar.')
+      connectingInstagram.value = false
       return
     }
     

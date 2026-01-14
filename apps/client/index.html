@@ -24,15 +24,21 @@
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
 
-  <!-- Facebook SDK -->
+  <!-- Facebook SDK - Se inicializa manualmente después de obtener el App ID -->
   <script>
-    window.fbAsyncInit = function () {
-      FB.init({
-        appId: window.__FACEBOOK_APP_ID__,
-        cookie: true,
-        xfbml: true,
-        version: 'v18.0'
-      });
+    window.__FB_INITIALIZED__ = false;
+    window.initFacebookSDK = function (appId) {
+      if (window.__FB_INITIALIZED__ || !appId) return;
+      if (typeof FB !== 'undefined') {
+        FB.init({
+          appId: appId,
+          cookie: true,
+          xfbml: true,
+          version: 'v18.0'
+        });
+        window.__FB_INITIALIZED__ = true;
+        console.log('Facebook SDK initialized with App ID:', appId);
+      }
     };
   </script>
   <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
