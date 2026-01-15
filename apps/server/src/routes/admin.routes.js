@@ -289,20 +289,24 @@ router.post('/conversations/:id/messages', requireAgent, async (req, res) => {
 
         // Send via messaging service
         try {
-            let sendFunc;
             if (conversation.channel.type === 'whatsapp') {
-                const whatsappService = await import('../services/messaging/whatsapp.service.js');
-                sendFunc = whatsappService.default.sendTextMessage;
+                const { sendTextMessage } = await import('../services/messaging/whatsapp.service.js');
+                await sendTextMessage(
+                    conversation.customer.toString(),
+                    content,
+                    conversation.channel._id
+                );
             } else if (conversation.channel.type === 'messenger') {
-                const messengerService = await import('../services/messaging/messenger.service.js');
-                sendFunc = messengerService.default.sendTextMessage;
-            }
-
-            if (sendFunc) {
-                await sendFunc(conversation.customer.toString(), content, conversation.channel._id);
+                const { sendTextMessage } = await import('../services/messaging/messenger.service.js');
+                await sendTextMessage(
+                    conversation.customer.toString(),
+                    content,
+                    conversation.channel._id
+                );
             }
         } catch (sendError) {
             console.error('Error sending via channel:', sendError);
+            // Don't fail the request - message is saved in DB
         }
 
         res.json({ message });
