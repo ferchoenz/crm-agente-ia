@@ -251,6 +251,67 @@ router.get('/conversations/:id', requireAgent, async (req, res) => {
     res.json({ conversation, messages });
 });
 
+// Send message from agent in manual mode
+router.post('/conversations/:id/messages', requireAgent, async (req, res) => {
+    const { Message, Conversation, Channel } = await import('../models/index.js');
+    const { content } = req.body;
+
+    try {
+        const conversation = await Conversation.findOne({
+            _id: req.params.id,
+            ...req.tenantFilter
+        }).populate('channel');
+
+        if (!conversation) {
+            return res.status(404).json({ error: 'Conversation not found' });
+        }
+
+        // Create message
+        const message = new Message({
+            organization: req.user.organization,
+            conversation: conversation._id,
+            customer: conversation.customer,
+            channel: conversation.channel._id,
+            content,
+            senderType: 'agent',
+            sentBy: req.user._id,
+            sentAt: new Date(),
+            delivered: true,
+            read: false
+        });
+
+        await message.save();
+
+        // Update conversation
+        conversation.lastMessage = message._id;
+        conversation.lastMessageAt = new Date();
+        await conversation.save();
+
+        // Send via messaging service
+        try {
+            let sendFunc;
+            if (conversation.channel.type === 'whatsapp') {
+                const whatsappService = await import('../services/messaging/whatsapp.service.js');
+                sendFunc = whatsappService.default.sendTextMessage;
+            } else if (conversation.channel.type === 'messenger') {
+                const messengerService = await import('../services/messaging/messenger.service.js');
+                sendFunc = messengerService.default.sendTextMessage;
+            }
+
+            if (sendFunc) {
+                await sendFunc(conversation.customer.toString(), content, conversation.channel._id);
+            }
+        } catch (sendError) {
+            console.error('Error sending via channel:', sendError);
+        }
+
+        res.json({ message });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        res.status(500).json({ error: 'Error al enviar mensaje' });
+    }
+});
+
 // Products CRUD
 router.get('/products', requireAgent, async (req, res) => {
     const { Product } = await import('../models/index.js');

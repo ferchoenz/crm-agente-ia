@@ -310,12 +310,28 @@ async function sendMessage() {
   if (!newMessage.value.trim() || !selectedConv.value) return
 
   sending.value = true
+  const messageContent = newMessage.value.trim()
+  newMessage.value = '' // Clear immediately for better UX
+
   try {
-    await socket.sendMessage(selectedConv.value._id, newMessage.value.trim())
-    newMessage.value = ''
+    // Send via API instead of WebSocket for reliability
+    const response = await api.post(`/admin/conversations/${selectedConv.value._id}/messages`, {
+      content: messageContent,
+      senderType: 'agent'
+    })
+
+    // Add message to local state
+    messages.value.push(response.data.message)
+
+    // Scroll to bottom
+    await nextTick()
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+    }
   } catch (error) {
     console.error('Error sending message:', error)
-    alert('Error al enviar mensaje')
+    alert('Error al enviar mensaje: ' + (error.response?.data?.error || error.message))
+    newMessage.value = messageContent // Restore message on error
   } finally {
     sending.value = false
   }

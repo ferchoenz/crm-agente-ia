@@ -11,13 +11,16 @@ import { logger } from '../../utils/logger.js';
 export class AIAgentService {
     constructor(organizationId) {
         this.organizationId = organizationId;
-        this.router = getModelRouter();
+        this.router = null; // Will be initialized in initialize()
     }
 
     /**
      * Initialize with organization data
      */
     async initialize() {
+        // Initialize router first
+        this.router = await getModelRouter();
+
         this.organization = await Organization.findById(this.organizationId)
             .select('name email phone logo settings aiConfig')
             .lean();
