@@ -180,8 +180,8 @@
               :class="settings.preferredLevel === 'L2' ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300'"
             >
               <div class="text-amber-600 font-bold text-sm mb-1">L2 - Contextual</div>
-              <div class="text-xs text-slate-600">Gemini 1.5 Flash</div>
-              <div class="text-xs text-slate-400 mt-1">Bueno con contexto largo, búsquedas</div>
+              <div class="text-xs text-slate-600">Qwen 2.5 32B</div>
+              <div class="text-xs text-slate-400 mt-1">Balance ideal de calidad y costo</div>
             </button>
             
             <button

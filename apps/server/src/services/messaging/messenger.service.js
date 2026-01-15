@@ -4,6 +4,7 @@ import { Channel, Customer, Conversation, Message, Organization } from '../../mo
 import { decrypt } from '../encryption.service.js';
 import { logger } from '../../utils/logger.js';
 import { createAIAgent } from '../ai/agent.service.js';
+import { emitNewMessage } from '../socket.service.js';
 
 const MESSENGER_API_URL = 'https://graph.facebook.com/v18.0';
 
@@ -429,6 +430,9 @@ export async function processMessengerMessage(webhookData) {
         };
         await conversation.save();
 
+        // Emit to frontend via WebSocket
+        emitNewMessage(organizationId, conversation._id, incomingMessage);
+
         // Update customer last contact
         customer.stats.lastContactAt = new Date();
         customer.stats.lastMessageAt = new Date();
@@ -509,6 +513,9 @@ async function processWithAI(channel, messenger, conversation, customer, senderI
             sentAt: new Date()
         };
         await conversation.save();
+
+        // Emit AI response to frontend via WebSocket
+        emitNewMessage(channel.organization._id, conversation._id, aiMessage);
 
         // Update lead score
         await agent.updateLeadScore(

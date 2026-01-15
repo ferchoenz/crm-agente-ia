@@ -1,7 +1,6 @@
 import { logger } from '../../utils/logger.js';
 import { createGroqProvider } from './providers/groq.provider.js';
-import { createOpenRouterProvider } from './providers/openrouter.provider.js';
-import { createGeminiProvider } from './providers/gemini.provider.js';
+import { createOpenRouterProvider, createQwenProvider } from './providers/openrouter.provider.js';
 
 /**
  * Model Router Service
@@ -29,10 +28,10 @@ export class ModelRouterService {
                 logger.info('✓ Groq provider initialized (L1)');
             }
 
-            // L2: Gemini for contextual queries
-            this.providers.L2 = createGeminiProvider();
+            // L2: Qwen for contextual queries (via OpenRouter)
+            this.providers.L2 = createQwenProvider();
             if (this.providers.L2) {
-                logger.info('✓ Gemini provider initialized (L2)');
+                logger.info('✓ Qwen provider initialized (L2)');
             }
 
             // L3: DeepSeek for complex reasoning
@@ -135,7 +134,7 @@ export class ModelRouterService {
     }
 
     /**
-     * Generate response using appropriate provider
+     * Generate response using appropriate provider with fallback
      */
     async chat(messages, options = {}) {
         if (!this.initialized) {
@@ -150,19 +149,37 @@ export class ModelRouterService {
             context || {}
         );
 
-        // Get provider
-        const { provider, level } = this.getProvider(requestedLevel);
-
-        logger.info(`Routing to ${level} provider for message classification`);
-
-        // Generate response
-        const response = await provider.chat(messages, options);
-
-        return {
-            ...response,
-            level,
-            classifiedLevel: requestedLevel
+        // Build fallback order
+        const fallbackOrder = {
+            'L1': ['L1', 'L2', 'L3'],
+            'L2': ['L2', 'L1', 'L3'],
+            'L3': ['L3', 'L2', 'L1']
         };
+
+        const levelsToTry = fallbackOrder[requestedLevel] || ['L1', 'L2', 'L3'];
+        let lastError = null;
+
+        for (const level of levelsToTry) {
+            const provider = this.providers[level];
+            if (!provider) continue;
+
+            try {
+                logger.info(`Routing to ${level} provider for message classification`);
+                const response = await provider.chat(messages, options);
+
+                return {
+                    ...response,
+                    level,
+                    classifiedLevel: requestedLevel
+                };
+            } catch (error) {
+                logger.warn(`Provider ${level} failed: ${error.message}, trying next...`);
+                lastError = error;
+            }
+        }
+
+        // All providers failed
+        throw lastError || new Error('All AI providers failed');
     }
 
     /**

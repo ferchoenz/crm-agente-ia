@@ -2,11 +2,11 @@ import OpenAI from 'openai';
 import { logger } from '../../../utils/logger.js';
 
 /**
- * OpenRouter Provider - Access to DeepSeek V3 and other models
- * Used for L3 (complex) queries
+ * OpenRouter Provider - Access to multiple models via OpenRouter
+ * Used for L2 (Qwen) and L3 (DeepSeek) queries
  */
 export class OpenRouterProvider {
-    constructor(apiKey) {
+    constructor(apiKey, model, providerName = 'openrouter') {
         if (!apiKey) {
             throw new Error('OPENROUTER_API_KEY is required');
         }
@@ -20,8 +20,8 @@ export class OpenRouterProvider {
             }
         });
 
-        this.defaultModel = process.env.AI_L3_MODEL || 'deepseek/deepseek-chat';
-        this.provider = 'deepseek';
+        this.defaultModel = model;
+        this.provider = providerName;
     }
 
     /**
@@ -89,7 +89,7 @@ export class OpenRouterProvider {
 }
 
 /**
- * Factory function
+ * Factory function for L3 (DeepSeek V3)
  */
 export function createOpenRouterProvider() {
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -97,5 +97,19 @@ export function createOpenRouterProvider() {
         logger.warn('OPENROUTER_API_KEY not configured');
         return null;
     }
-    return new OpenRouterProvider(apiKey);
+    const model = process.env.AI_L3_MODEL || 'deepseek/deepseek-chat';
+    return new OpenRouterProvider(apiKey, model, 'deepseek');
+}
+
+/**
+ * Factory function for L2 (Qwen 2.5 32B)
+ */
+export function createQwenProvider() {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+        logger.warn('OPENROUTER_API_KEY not configured');
+        return null;
+    }
+    const model = process.env.AI_L2_MODEL || 'qwen/qwen-2.5-32b-instruct';
+    return new OpenRouterProvider(apiKey, model, 'qwen');
 }
