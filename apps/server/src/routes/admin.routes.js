@@ -290,18 +290,18 @@ router.post('/conversations/:id/messages', requireAgent, async (req, res) => {
         // Send via messaging service
         try {
             if (conversation.channel.type === 'whatsapp') {
-                const { sendTextMessage } = await import('../services/messaging/whatsapp.service.js');
-                await sendTextMessage(
+                const { createWhatsAppService } = await import('../services/messaging/whatsapp.service.js');
+                const whatsappService = await createWhatsAppService(conversation.channel._id);
+                await whatsappService.sendTextMessage(
                     conversation.customer.toString(),
-                    content,
-                    conversation.channel._id
+                    content
                 );
             } else if (conversation.channel.type === 'messenger') {
-                const { sendTextMessage } = await import('../services/messaging/messenger.service.js');
-                await sendTextMessage(
+                const { createMessengerService } = await import('../services/messaging/messenger.service.js');
+                const messengerService = await createMessengerService(conversation.channel._id);
+                await messengerService.sendTextMessage(
                     conversation.customer.toString(),
-                    content,
-                    conversation.channel._id
+                    content
                 );
             }
         } catch (sendError) {
