@@ -80,27 +80,7 @@ import { onNotification } from '@/services/socket'
 
 const router = useRouter()
 const isOpen = ref(false)
-const notifications = ref([
-  // Demo notifications for now
-  {
-    id: 1,
-    type: 'handoff',
-    title: 'Solicitud de Humano',
-    message: 'Juan Pérez quiere hablar con un asesor',
-    createdAt: new Date(Date.now() - 1000 * 60 * 5),
-    read: false,
-    data: { conversationId: '123' }
-  },
-  {
-    id: 2,
-    type: 'assignment',
-    title: 'Nuevo Chat Asignado',
-    message: 'Te han asignado el chat de María González',
-    createdAt: new Date(Date.now() - 1000 * 60 * 30),
-    read: true,
-    data: { conversationId: '124' }
-  }
-])
+const notifications = ref([])
 
 const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
 

@@ -361,7 +361,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { format, isToday, isYesterday } from 'date-fns'
+import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth.store'
