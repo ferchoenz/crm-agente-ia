@@ -11,22 +11,20 @@ import { logger } from '../../utils/logger.js';
 export class AIAgentService {
     constructor(organizationId) {
         this.organizationId = organizationId;
-        this.organization = null;
-        this.router = null;
+        this.router = getModelRouter();
     }
 
     /**
-     * Initialize the agent with organization settings
+     * Initialize with organization data
      */
     async initialize() {
-        this.organization = await Organization.findById(this.organizationId);
+        this.organization = await Organization.findById(this.organizationId)
+            .select('name email phone logo settings aiConfig')
+            .lean();
 
         if (!this.organization) {
             throw new Error('Organization not found');
         }
-
-        // Get the model router
-        this.router = await getModelRouter();
 
         logger.info(`AI Agent initialized for org ${this.organizationId}`);
 
@@ -41,26 +39,71 @@ export class AIAgentService {
         const settings = this.organization.settings || {};
 
         let systemPrompt = config.systemPrompt ||
-            'Eres un asistente de ventas amable y profesional.';
+            `Eres el Asistente Virtual de ${this.organization.name}`;
 
-        // Add business context
-        systemPrompt += `\n\nInformación del negocio:
-- Nombre: ${this.organization.name}
-- Horario: ${settings.businessHours?.enabled ? 'Con horario definido' : 'Sin restricción de horario'}
-- Idioma: ${settings.language || 'es'}
+        // Enhanced prompt with best practices
+        systemPrompt += `
 
-Instrucciones adicionales:
-- Responde siempre en español a menos que el cliente escriba en otro idioma
-- Sé conciso pero amable
-- Si el cliente pregunta por productos, busca en el catálogo
-- Si el cliente quiere agendar una cita, verifica disponibilidad
-- Si el cliente pide hablar con un humano, indica que transferirás la conversación`;
+# 🎯 TU ROL
+Respondes dudas de clientes basándote ESTRICTAMENTE en:
+1. El catálogo de productos disponible (entre [PRODUCTOS])
+2. La información de la empresa (entre [CONTEXTO])
+3. El historial de la conversación
 
-        // Add personality modifiers
+# ✅ TONO Y ESTILO
+- **Profesional, empático y resolutivo**
+- Habla en español neutral
+- **Sé conciso**: Ve al grano, evita introducciones largas
+- Usa listas y negritas para facilitar lectura rápida
+- Máximo 3-4 líneas por respuesta
+
+# 🧠 REGLAS DE RAZONAMIENTO
+1. **ANÁLISIS**: Lee la pregunta del cliente y revisa PRIMERO el contexto proporcionado
+2. **VERACIDAD**: Si la respuesta está en el contexto, respóndela con confianza
+3. **LIMITACIÓN CRÍTICA**: 
+   - ❌ Si la info NO está en [PRODUCTOS] o [CONTEXTO], NO la inventes
+   - ✅ Di: "No tengo esa información específica. ¿Te gustaría que te contacte un asesor?"
+4. **PRODUCTOS**:
+   - SOLO menciona productos que aparezcan en [PRODUCTOS]
+   - Si NO hay productos listados, NO inventes ninguno
+   - Si preguntan por productos que NO están, di: "Actualmente no tengo ese producto en mi catálogo"
+
+# 📦 USO DE CATÁLOGO
+- Si recibes [PRODUCTOS: ninguno], significa que NO HAY PRODUCTOS
+- NO menciones productos de otros documentos o manuales
+- Cada producto tiene: nombre, precio, descripción
+- Sé específico con nombres y precios exactos
+
+# 💬 MEMORIA CONVERSACIONAL
+- Revisa el historial antes de responder
+- NO repitas información ya compartida
+- Si ya mencionaste algo, di "Como te comenté..."
+
+# ❌ NUNCA HAGAS ESTO
+- Inventar productos que no están en [PRODUCTOS]
+- Copiar/pegar documentos completos
+- Respuestas de más de 5 líneas
+- Hablar de productos si [PRODUCTOS: ninguno]
+- Usar información de manuales como si fueran productos
+
+# ✅ EJEMPLOS
+
+**Cliente:** "Qué productos tienen?"
+- Si [PRODUCTOS: ninguno] → "Actualmente estoy configurando el catálogo. ¿Te gustaría que un asesor te contacte?"
+- Si [PRODUCTOS: Laptop HP...] → "Tenemos: Laptop HP a $15,000. ¿Te interesa conocer más detalles?"
+
+**Cliente:** "Cuánto cuesta X?"
+- Si X NO está en [PRODUCTOS] → "No tengo ese producto en catálogo actualmente"
+- Si X está en [PRODUCTOS] → "El [nombre exacto] tiene un precio de $[precio exacto]"
+
+**Empresa:** ${this.organization.name}
+**Horario:** ${settings.businessHours?.enabled ? 'Con horario definido' : 'Disponible 24/7'}`;
+
+        // Add personality
         if (config.personality?.tone === 'formal') {
-            systemPrompt += '\n- Usa un tono formal y profesional (usted)';
-        } else if (config.personality?.tone === 'casual') {
-            systemPrompt += '\n- Usa un tono casual y cercano (tú)';
+            systemPrompt += '\n\n**TONO:** Formal y profesional (usar "usted")';
+        } else {
+            systemPrompt += '\n\n**TONO:** Amigable pero profesional (usar "tú")';
         }
 
         return systemPrompt;
@@ -88,20 +131,53 @@ Instrucciones adicionales:
     }
 
     /**
-     * Search products relevant to the query
+     * Search products relevant to the query - IMPROVED
      */
     async searchProducts(query, limit = 5) {
-        const products = await Product.find({
-            organization: this.organizationId,
-            status: 'active',
-            available: true,
-            $text: { $search: query }
-        })
-            .limit(limit)
-            .select('name description price category')
-            .lean();
+        try {
+            // Try regex search first (more reliable)
+            const searchRegex = new RegExp(query.split(' ').join('|'), 'i');
 
-        return products;
+            const products = await Product.find({
+                organization: this.organizationId,
+                status: 'active',
+                available: true,
+                $or: [
+                    { name: searchRegex },
+                    { description: searchRegex },
+                    { category: searchRegex }
+                ]
+            })
+                .limit(limit)
+                .select('name description price category stock')
+                .lean();
+
+            return products;
+        } catch (error) {
+            logger.error('Error searching products:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get ALL active products if query is general
+     */
+    async getAllProducts(limit = 10) {
+        try {
+            const products = await Product.find({
+                organization: this.organizationId,
+                status: 'active',
+                available: true
+            })
+                .limit(limit)
+                .select('name description price category stock')
+                .lean();
+
+            return products;
+        } catch (error) {
+            logger.error('Error getting all products:', error);
+            return [];
+        }
     }
 
     /**
@@ -111,12 +187,13 @@ Instrucciones adicionales:
         const lowerMessage = message.toLowerCase();
 
         const intents = {
-            greeting: ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hi', 'hello'],
-            inquiry: ['precio', 'costo', 'cuánto', 'tienen', 'hay', 'disponible', 'información'],
+            greeting: ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hi', 'hello', 'qué tal'],
+            product_list: ['qué tienen', 'qué venden', 'productos', 'catálogo', 'qué ofrecen', 'servicios'],
+            inquiry: ['precio', 'costo', 'cuánto', 'disponible', 'información', 'características'],
             purchase: ['comprar', 'quiero', 'me interesa', 'ordenar', 'pedir'],
             appointment: ['cita', 'agendar', 'reservar', 'horario', 'disponibilidad'],
             complaint: ['problema', 'queja', 'malo', 'reclamo', 'devolver'],
-            human_handoff: ['humano', 'persona', 'agente', 'asesor', 'hablar con alguien']
+            human_handoff: ['humano', 'persona', 'agente', 'asesor', 'hablar con alguien', 'operador']
         };
 
         for (const [intent, keywords] of Object.entries(intents)) {
@@ -142,32 +219,46 @@ Instrucciones adicionales:
             // Detect intent
             const intent = this.detectIntent(customerMessage);
 
-            // Add context based on intent
+            // Build context message
             let contextMessage = '';
-            let hasProducts = false;
+            let products = [];
 
-            if (intent === 'inquiry' || intent === 'purchase') {
-                const products = await this.searchProducts(customerMessage);
+            // PRODUCTS: Only add if intent is product-related
+            if (intent === 'inquiry' || intent === 'purchase' || intent === 'product_list') {
+                if (intent === 'product_list') {
+                    // Get all products for general queries
+                    products = await this.getAllProducts(5);
+                } else {
+                    // Search specific products
+                    products = await this.searchProducts(customerMessage, 5);
+                }
+
                 if (products.length > 0) {
-                    hasProducts = true;
-                    contextMessage = '\n\n[Productos relacionados encontrados:\n' +
-                        products.map(p => `- ${p.name}: $${p.price} - ${p.description?.slice(0, 100) || ''}`).join('\n') +
-                        ']';
+                    contextMessage += '\n\n[PRODUCTOS DISPONIBLES:\n' +
+                        products.map(p =>
+                            `- ${p.name}: $${p.price}${p.description ? ' - ' + p.description.slice(0, 80) : ''}${p.stock !== undefined ? ` (Stock: ${p.stock})` : ''}`
+                        ).join('\n') +
+                        '\n]';
+                } else {
+                    contextMessage += '\n\n[PRODUCTOS: ninguno - No hay productos que coincidan con la búsqueda]';
                 }
             }
 
-            // Search Knowledge Base for relevant context
-            const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 3);
-            if (knowledgeChunks.length > 0) {
-                const knowledgeContext = knowledgeChunks.map(chunk =>
-                    `[${chunk.documentTitle}]: ${chunk.content}`
-                ).join('\n\n');
-                contextMessage += `\n\n[INFORMACIÓN DE LA EMPRESA - USA ESTA INFORMACIÓN PARA RESPONDER:\n${knowledgeContext}\n]`;
+            // KNOWLEDGE BASE: Only if NOT a product query (limit to 2 chunks, max 200 chars each)
+            if (intent !== 'inquiry' && intent !== 'purchase' && intent !== 'product_list') {
+                const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 2);
+                if (knowledgeChunks.length > 0) {
+                    const knowledgeContext = knowledgeChunks.map(chunk =>
+                        `${chunk.content.slice(0, 200)}...`
+                    ).join('\n');
+                    contextMessage += `\n\n[CONTEXTO EMPRESA:\n${knowledgeContext}\n]`;
+                }
             }
 
+            // Handle human handoff
             if (intent === 'human_handoff') {
                 return {
-                    content: 'Entiendo que prefieres hablar con uno de nuestros asesores. Voy a transferir tu conversación para que te atiendan personalmente. Por favor espera un momento. 🙋‍♂️',
+                    content: 'Entiendo que prefieres hablar con un asesor. Voy a transferir tu conversación para que te atiendan personalmente. 🙋‍♂️',
                     intent,
                     shouldHandoff: true,
                     processingTime: Date.now() - startTime
@@ -188,108 +279,31 @@ Instrucciones adicionales:
             const response = await this.router.chat(messages, {
                 message: customerMessage,
                 context: {
-                    historyLength: history.length,
-                    hasProducts,
-                    requiresSearch: hasProducts
+                    organizationId: this.organizationId,
+                    conversationId,
+                    customerId,
+                    intent,
+                    hasProducts: products.length > 0
                 },
-                forceLevel,
-                temperature: aiConfig.temperature || 0.7,
-                maxTokens: aiConfig.maxTokens || 500
+                temperature: aiConfig.personality?.temperature || 0.7,
+                maxTokens: 200, // Short responses
+                forceLevel
             });
 
             const processingTime = Date.now() - startTime;
 
-            // Record AI usage
-            await AIUsage.recordUsage({
-                organizationId: this.organizationId,
-                provider: response.provider,
-                model: response.model,
-                level: response.level,
-                inputTokens: response.inputTokens,
-                outputTokens: response.outputTokens,
-                responseTimeMs: response.responseTimeMs,
-                success: true,
-                messageReceived: true,
-                messageSent: true
-            });
-
-            logger.info(`AI response generated in ${processingTime}ms via ${response.provider} (${response.level}) for org ${this.organizationId}`);
-
             return {
                 content: response.content,
                 intent,
-                shouldHandoff: false,
-                tokensUsed: response.totalTokens || 0,
-                processingTime,
+                model: response.model,
                 provider: response.provider,
-                level: response.level
+                shouldHandoff: false,
+                processingTime
             };
 
         } catch (error) {
-            logger.error('AI generation error:', error);
-
-            // Record failed request
-            try {
-                await AIUsage.recordUsage({
-                    organizationId: this.organizationId,
-                    provider: 'unknown',
-                    model: 'unknown',
-                    level: 'L1',
-                    inputTokens: 0,
-                    outputTokens: 0,
-                    responseTimeMs: Date.now() - startTime,
-                    success: false,
-                    messageReceived: true,
-                    messageSent: false
-                });
-            } catch (e) {
-                logger.error('Failed to record AI usage error:', e);
-            }
-
+            logger.error('Error generating AI response:', error);
             throw error;
         }
     }
-
-    /**
-     * Update customer lead score based on conversation
-     */
-    async updateLeadScore(customerId, intent, messageCount) {
-        const customer = await Customer.findById(customerId);
-        if (!customer) return;
-
-        const scoreAdjustments = {
-            greeting: 5,
-            inquiry: 10,
-            purchase: 25,
-            appointment: 20,
-            complaint: -5,
-            human_handoff: 0,
-            unknown: 2
-        };
-
-        let newScore = customer.leadScore + (scoreAdjustments[intent] || 0);
-
-        // Bonus for engagement
-        if (messageCount > 5) newScore += 5;
-        if (messageCount > 10) newScore += 10;
-
-        customer.leadScore = Math.min(100, Math.max(0, newScore));
-        customer.insights.intents = customer.insights.intents || [];
-        if (!customer.insights.intents.includes(intent)) {
-            customer.insights.intents.push(intent);
-        }
-
-        await customer.save();
-
-        return customer.leadScore;
-    }
-}
-
-/**
- * Factory function to create and initialize an AI agent
- */
-export async function createAIAgent(organizationId) {
-    const agent = new AIAgentService(organizationId);
-    await agent.initialize();
-    return agent;
 }
