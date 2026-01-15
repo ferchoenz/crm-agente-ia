@@ -339,5 +339,19 @@ router.post('/knowledge/text', requireAdmin, createTextDocument);
 router.patch('/knowledge/:id/toggle', requireAdmin, toggleActive);
 router.delete('/knowledge/:id', requireAdmin, removeDocument);
 
+// Notifications
+import {
+    getNotifications,
+    markAsRead,
+    markAllAsRead,
+    getUnreadCount
+} from '../controllers/admin/notification.controller.js';
+
+router.get('/notifications', getNotifications);
+router.get('/notifications/unread-count', getUnreadCount);
+router.patch('/notifications/:id/read', markAsRead);
+router.patch('/notifications/mark-all-read', markAllAsRead);
+
 export default router;
+
 

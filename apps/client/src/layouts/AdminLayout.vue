@@ -163,11 +163,79 @@
               />
             </div>
             
-            <!-- Notifications -->
-            <button class="relative p-2 hover:bg-slate-100 rounded-xl transition-colors">
-              <BellIcon class="w-5 h-5 text-slate-600" />
-              <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
-            </button>
+            <!-- Notifications Dropdown -->
+            <div class="relative">
+              <button 
+                @click="showNotifications = !showNotifications"
+                class="relative p-2 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <BellIcon class="w-5 h-5 text-slate-600" />
+                <span 
+                  v-if="notificationUnreadCount > 0" 
+                  class="absolute top-1 right-1 px-1.5 py-0.5 bg-rose-500 text-white text-xs rounded-full font-medium min-w-[18px] flex items-center justify-center"
+                >
+                  {{ notificationUnreadCount > 9 ? '9+' : notificationUnreadCount }}
+                </span>
+              </button>
+
+              <!-- Dropdown -->
+              <Transition name="fade">
+                <div 
+                  v-if="showNotifications"
+                  v-click-outside="() => showNotifications = false"
+                  class="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 max-h-[500px] flex flex-col"
+                >
+                  <!-- Header -->
+                  <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="font-semibold text-slate-800">Notificaciones</h3>
+                    <button 
+                      v-if="notifications.length > 0"
+                      @click="markAllAsRead"
+                      class="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      Marcar todas como leídas
+                    </button>
+                  </div>
+
+                  <!-- List -->
+                  <div class="flex-1 overflow-y-auto">
+                    <div v-if="loadingNotifications" class="p-8 text-center">
+                      <LoaderIcon class="w-6 h-6 mx-auto animate-spin text-primary-500" />
+                    </div>
+
+                    <div v-else-if="notifications.length === 0" class="p-8 text-center">
+                      <BellIcon class="w-12 h-12 mx-auto text-slate-300 mb-2" />
+                      <p class="text-slate-500 text-sm">No hay notificaciones</p>
+                    </div>
+
+                    <div v-else>
+                      <div
+                        v-for="notif in notifications"
+                        :key="notif._id"
+                        @click="handleNotificationClick(notif)"
+                        class="p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                        :class="!notif.read ? 'bg-primary-50/30' : ''"
+                      >
+                        <div class="flex items-start gap-3">
+                          <div 
+                            class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                            :class="getNotificationIconClass(notif.type)"
+                          >
+                            <component :is="getNotificationIcon(notif.type)" class="w-4 h-4" />
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <h4 class="font-medium text-slate-800 text-sm">{{ notif.title }}</h4>
+                            <p class="text-xs text-slate-600 mt-0.5">{{ notif.message }}</p>
+                            <span class="text-xs text-slate-400 mt-1 block">{{ formatTime(notif.createdAt) }}</span>
+                          </div>
+                          <div v-if="!notif.read" class="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0 mt-1.5"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </div>
           </div>
         </header>
         
@@ -200,6 +268,7 @@ import {
   Kanban as PipelineIcon,
   Settings as SettingsIcon,
   Sparkles as AIIcon,
+  BookOpen as BookOpenIcon,
   Link2 as ChannelsIcon,
   UserCog as TeamIcon,
   MoreVertical as MoreVerticalIcon,
@@ -221,6 +290,10 @@ const isLocked = ref(false)
 const isHovering = ref(false)
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
+const showNotifications = ref(false)
+const notifications = ref([])
+const notificationUnreadCount = ref(0)
+const loadingNotifications = ref(false)
 const searchQuery = ref('')
 const unreadCount = ref(0)
 
@@ -239,6 +312,7 @@ const navigation = computed(() => [
 const settingsNav = [
   { to: '/settings', label: 'General', icon: SettingsIcon },
   { to: '/settings/ai', label: 'Agente IA', icon: AIIcon },
+  { to: '/settings/knowledge', label: 'Base de Conocimiento', icon: BookOpenIcon },
   { to: '/settings/channels', label: 'Canales', icon: ChannelsIcon },
   { to: '/settings/team', label: 'Equipo', icon: TeamIcon }
 ]
@@ -258,6 +332,7 @@ const pageTitle = computed(() => {
     '/pipeline': 'Pipeline de ventas',
     '/settings': 'Configuración',
     '/settings/ai': 'Configuración IA',
+    '/settings/knowledge': 'Base de Conocimiento',
     '/settings/channels': 'Canales',
     '/settings/team': 'Equipo'
   }
@@ -302,6 +377,77 @@ async function logout() {
   await authStore.logout()
   router.push('/login')
 }
+
+// Notification functions
+async function loadNotifications() {
+  loadingNotifications.value = true
+  try {
+    const response = await api.get('/admin/notifications', { params: { limit: 20 } })
+    notifications.value = response.data.notifications
+    notificationUnreadCount.value = response.data.unreadCount
+  } catch (error) {
+    console.error('Error loading notifications:', error)
+  } finally {
+    loadingNotifications.value = false
+  }
+}
+
+async function handleNotificationClick(notif) {
+  if (!notif.read) {
+    try {
+      await api.patch(`/admin/notifications/${notif._id}/read`)
+      notif.read = true
+      notificationUnreadCount.value = Math.max(0, notificationUnreadCount.value - 1)
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
+
+  if (notif.actionUrl) {
+    router.push(notif.actionUrl)
+    showNotifications.value = false
+  } else if (notif.relatedConversation) {
+    router.push(`/inbox/${notif.relatedConversation}`)
+    showNotifications.value = false
+  }
+}
+
+async function markAllAsRead() {
+  try {
+    await api.patch('/admin/notifications/mark-all-read')
+    notifications.value.forEach(n => n.read = true)
+    notificationUnreadCount.value = 0
+  } catch (error) {
+    console.error('Error marking all as read:', error)
+  }
+}
+
+function getNotificationIcon(type) {
+  switch (type) {
+    case 'handoff_request': return UserPlusIcon
+    case 'assignment': return InboxIcon
+    case 'mention': return AlertCircleIcon
+    case 'system': return BellIcon
+    default: return BellIcon
+  }
+}
+
+function getNotificationIconClass(type) {
+  switch (type) {
+    case 'handoff_request': return 'bg-amber-100 text-amber-600'
+    case 'assignment': return 'bg-primary-100 text-primary-600'
+    case 'mention': return 'bg-violet-100 text-violet-600'
+    case 'system': return 'bg-slate-100 text-slate-600'
+    default: return 'bg-slate-100 text-slate-600'
+  }
+}
+
+// Watch notifications dropdown
+watch(showNotifications, async (val) => {
+  if (val && notifications.value.length === 0) {
+    await loadNotifications()
+  }
+})
 
 onMounted(async () => {
   // Restore sidebar state

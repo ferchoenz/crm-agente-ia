@@ -155,12 +155,12 @@
             <label class="block text-sm font-medium text-slate-600 mb-1">Archivo (PDF o TXT)</label>
             <div 
               class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-400 transition-colors"
-              @click="$refs.fileInput.click()"
+              @click="fileInputRef?.click()"
               @drop.prevent="handleDrop"
               @dragover.prevent
             >
               <input
-                ref="fileInput"
+                ref="fileInputRef"
                 type="file"
                 accept=".pdf,.txt"
                 class="hidden"
@@ -233,6 +233,7 @@ const documents = ref([])
 const showUploadModal = ref(false)
 const uploadType = ref('file')
 const selectedFile = ref(null)
+const fileInputRef = ref(null)
 
 const newDoc = ref({
   title: '',
