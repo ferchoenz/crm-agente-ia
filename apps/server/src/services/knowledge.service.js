@@ -5,7 +5,15 @@ import { createRequire } from 'module';
 
 // pdf-parse is CommonJS, need to use require
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+const pdfParseModule = require('pdf-parse');
+
+// Debug: Check what we got
+logger.info('pdf-parse module type:', typeof pdfParseModule);
+logger.info('pdf-parse module keys:', Object.keys(pdfParseModule || {}));
+
+// Get the actual function
+const pdfParse = pdfParseModule.default || pdfParseModule;
+logger.info('pdfParse function type:', typeof pdfParse);
 
 /**
  * Knowledge Base Service
