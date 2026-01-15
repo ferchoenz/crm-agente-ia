@@ -260,17 +260,26 @@ router.post('/conversations/:id/messages', requireAgent, async (req, res) => {
         const conversation = await Conversation.findOne({
             _id: req.params.id,
             ...req.tenantFilter
-        }).populate('channel');
+        })
+            .populate('channel')
+            .populate('customer'); // IMPORTANT: Populate customer to get source.externalId
 
         if (!conversation) {
             return res.status(404).json({ error: 'Conversation not found' });
+        }
+
+        // Get the correct recipient ID (PSID for Messenger, phone for WhatsApp)
+        const recipientId = conversation.customer.source?.externalId || conversation.customer.phone;
+
+        if (!recipientId) {
+            return res.status(400).json({ error: 'No se pudo obtener el ID del destinatario' });
         }
 
         // Create message
         const message = new Message({
             organization: req.user.organization,
             conversation: conversation._id,
-            customer: conversation.customer,
+            customer: conversation.customer._id,
             channel: conversation.channel._id,
             content,
             senderType: 'human', // FIXED: was 'agent', must be 'human'
@@ -293,14 +302,14 @@ router.post('/conversations/:id/messages', requireAgent, async (req, res) => {
                 const { createWhatsAppService } = await import('../services/messaging/whatsapp.service.js');
                 const whatsappService = await createWhatsAppService(conversation.channel._id);
                 await whatsappService.sendTextMessage(
-                    conversation.customer.toString(),
+                    recipientId, // Use actual PSID/phone
                     content
                 );
             } else if (conversation.channel.type === 'messenger') {
                 const { createMessengerService } = await import('../services/messaging/messenger.service.js');
                 const messengerService = await createMessengerService(conversation.channel._id);
                 await messengerService.sendTextMessage(
-                    conversation.customer.toString(),
+                    recipientId, // Use actual PSID
                     content
                 );
             }
