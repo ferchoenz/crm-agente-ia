@@ -1,19 +1,7 @@
 import { KnowledgeDocument } from '../models/KnowledgeDocument.js';
 import { generateEmbedding } from './ai/embedding.service.js';
 import { logger } from '../utils/logger.js';
-import { createRequire } from 'module';
 
-// pdf-parse is CommonJS, need to use require
-const require = createRequire(import.meta.url);
-const pdfParseModule = require('pdf-parse');
-
-// Debug: Check what we got
-logger.info('pdf-parse module type:', typeof pdfParseModule);
-logger.info('pdf-parse module keys:', Object.keys(pdfParseModule || {}));
-
-// Get the actual function
-const pdfParse = pdfParseModule.default || pdfParseModule;
-logger.info('pdfParse function type:', typeof pdfParse);
 
 /**
  * Knowledge Base Service
@@ -217,12 +205,30 @@ export async function toggleDocumentActive(documentId, organizationId, isActive)
 }
 
 /**
- * Extract text from PDF buffer
+ * Extract text from PDF buffer using pdfjs-dist
  */
 export async function extractTextFromPDF(buffer) {
     try {
-        const data = await pdfParse(buffer);
-        return data.text;
+        // Use pdfjs-dist (Mozilla's PDF.js library)
+        const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+        // Load PDF from buffer
+        const loadingTask = pdfjsLib.getDocument({
+            data: new Uint8Array(buffer)
+        });
+
+        const pdf = await loadingTask.promise;
+        let fullText = '';
+
+        // Extract text from each page
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+
+        return fullText.trim();
     } catch (error) {
         logger.error('Error parsing PDF:', error);
         throw new Error('No se pudo procesar el PDF. Asegúrate de que sea un archivo válido.');
