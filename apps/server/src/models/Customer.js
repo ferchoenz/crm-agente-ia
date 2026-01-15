@@ -12,7 +12,7 @@ const customerSchema = new mongoose.Schema({
     // Contact info
     phone: {
         type: String,
-        required: true,
+        required: false,
         trim: true
     },
     phoneNormalized: {
@@ -34,7 +34,7 @@ const customerSchema = new mongoose.Schema({
     source: {
         channel: {
             type: String,
-            enum: ['whatsapp', 'facebook', 'instagram', 'web', 'manual'],
+            enum: ['whatsapp', 'facebook', 'instagram', 'messenger', 'web', 'manual'],
             default: 'whatsapp'
         },
         channelId: {
@@ -126,7 +126,7 @@ const customerSchema = new mongoose.Schema({
 });
 
 // Compound indexes for multi-tenant queries
-customerSchema.index({ organization: 1, phone: 1 }, { unique: true });
+customerSchema.index({ organization: 1, phone: 1 }, { unique: true, sparse: true });
 customerSchema.index({ organization: 1, 'source.externalId': 1 });
 customerSchema.index({ organization: 1, stage: 1 });
 customerSchema.index({ organization: 1, leadScore: -1 });
