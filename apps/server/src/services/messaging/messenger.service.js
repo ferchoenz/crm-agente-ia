@@ -531,16 +531,6 @@ async function processWithAI(channel, messenger, conversation, customer, senderI
             conversation.aiPausedReason = 'Customer requested human';
             conversation.priority = 'high';
             await conversation.save();
-
-            // Emit notification to admins
-            const { emitToOrganization } = await import('../socket.service.js');
-            emitToOrganization(channel.organization._id, 'notification', {
-                type: 'handoff',
-                title: 'Cliente solicita humano 🙋‍♂️',
-                message: `El cliente ${customer.name || customer.phone} solicitó hablar con un asesor.`,
-                conversationId: conversation._id,
-                timestamp: new Date()
-            });
         }
 
         // Send response via Messenger

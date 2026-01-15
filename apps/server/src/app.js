@@ -27,41 +27,11 @@ const io = initializeSocket(httpServer);
 app.set('io', io);
 
 // Middleware
-// Middleware
-app.set('trust proxy', 1); // Trust first proxy
 app.use(helmet());
-
-// CORS Configuration
-const allowedOrigins = [
-  'https://agentify-chat.com',
-  'https://www.agentify-chat.com',
-  'https://api.agentify-chat.com',
-  'http://localhost:5173',
-  'http://localhost:4173',
-  process.env.CLIENT_URL
-].filter(Boolean).map(url => url.replace(/\/$/, ''));
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
-      callback(null, true);
-    } else {
-      logger.warn(`CORS blocked for origin: ${origin}`);
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true
+}));
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
