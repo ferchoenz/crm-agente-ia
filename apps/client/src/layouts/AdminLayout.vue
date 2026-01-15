@@ -189,6 +189,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import LoadingScreen from '@/components/ui/LoadingScreen.vue'
+import api from '@/services/api'
+import { initSocket, onNewMessage, offEvent } from '@/services/socket'
 import {
   Zap as ZapIcon,
   LayoutDashboard as DashboardIcon,
@@ -220,18 +222,19 @@ const isHovering = ref(false)
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
 const searchQuery = ref('')
+const unreadCount = ref(0)
 
 const isExpanded = computed(() => isLocked.value || isHovering.value)
 const sidebarWidth = computed(() => isExpanded.value ? 'w-64' : 'w-20')
 const contentMargin = computed(() => isExpanded.value ? 'ml-64' : 'ml-20')
 
-const navigation = [
+const navigation = computed(() => [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon },
-  { to: '/inbox', label: 'Bandeja de entrada', icon: InboxIcon, badge: 3 },
+  { to: '/inbox', label: 'Bandeja de entrada', icon: InboxIcon, badge: unreadCount.value > 0 ? unreadCount.value : null },
   { to: '/customers', label: 'Clientes', icon: UsersIcon },
   { to: '/products', label: 'Productos', icon: PackageIcon },
   { to: '/pipeline', label: 'Pipeline', icon: PipelineIcon }
-]
+])
 
 const settingsNav = [
   { to: '/settings', label: 'General', icon: SettingsIcon },
@@ -300,18 +303,37 @@ async function logout() {
   router.push('/login')
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Restore sidebar state
   const saved = localStorage.getItem('sidebarLocked')
   if (saved !== null) {
     isLocked.value = saved === 'true'
   }
   
+  // Load unread count
+  await loadUnreadCount()
+  
+  // Initialize socket for real-time updates
+  initSocket()
+  onNewMessage(() => {
+    unreadCount.value++
+  })
+  
   // Simulate initial load
   setTimeout(() => {
     isLoading.value = false
   }, 1500)
 })
+
+async function loadUnreadCount() {
+  try {
+    const response = await api.get('/admin/conversations?limit=100')
+    const conversations = response.data.conversations || []
+    unreadCount.value = conversations.filter(c => c.unreadCount > 0).length
+  } catch (error) {
+    console.error('Failed to load unread count:', error)
+  }
+}
 
 // Close user menu when clicking outside
 watch(showUserMenu, (val) => {

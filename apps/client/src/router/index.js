@@ -93,7 +93,7 @@ const routes = [
             {
                 path: 'inbox/:id',
                 name: 'conversation',
-                component: () => import('@/views/admin/ConversationView.vue')
+                component: () => import('@/views/admin/InboxView.vue')
             },
             {
                 path: 'customers',
