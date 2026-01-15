@@ -209,3 +209,26 @@ export function offEvent(event, callback) {
         socket.off(event, callback)
     }
 }
+
+// Default export with all functions
+export default {
+    initSocket,
+    getSocket,
+    disconnectSocket,
+    useSocketStatus,
+    joinConversation,
+    leaveConversation,
+    sendMessage,
+    sendTyping,
+    toggleAI,
+    assignConversation,
+    onNewMessage,
+    onConversationUpdated,
+    onTypingUpdate,
+    onAIToggled,
+    onNotification,
+    offEvent,
+    // Direct access to state
+    get connected() { return connected.value },
+    get connecting() { return connecting.value }
+}
