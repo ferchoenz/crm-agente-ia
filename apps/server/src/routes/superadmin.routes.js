@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.middleware.js';
 import * as orgController from '../controllers/organization.controller.js';
 import * as systemController from '../controllers/system.controller.js';
+import * as aiStatsController from '../controllers/superadmin/ai-stats.controller.js';
 
 const router = Router();
 
@@ -33,6 +34,12 @@ router.post('/organizations/:id/billing', orgController.addBillingRecord);
 
 // Impersonate Organization Admin
 router.post('/organizations/:id/impersonate', orgController.impersonateAdmin);
+
+// ============================================
+// AI Statistics
+// ============================================
+router.get('/ai-stats', aiStatsController.getAIStats);
+router.get('/ai-stats/organization/:organizationId', aiStatsController.getOrganizationAIStats);
 
 // ============================================
 // System Settings
@@ -79,3 +86,4 @@ router.post('/backup/trigger', systemController.triggerBackup);
 router.get('/backup/history', systemController.getBackupHistory);
 
 export default router;
+

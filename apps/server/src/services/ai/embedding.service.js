@@ -1,35 +1,62 @@
-import { OpenAIEmbeddings } from '@langchain/openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Product } from '../../models/index.js';
 import { logger } from '../../utils/logger.js';
 
 /**
- * Embedding Service for RAG
+ * Embedding Service for RAG using Gemini
  * Generates and manages vector embeddings for products
  */
 
-let embeddingsInstance = null;
+let genAI = null;
+let embeddingModel = null;
 
 /**
- * Get or create embeddings instance
+ * Get or create Gemini embeddings instance
  */
-function getEmbeddings() {
-    if (!embeddingsInstance) {
-        embeddingsInstance = new OpenAIEmbeddings({
-            openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: 'text-embedding-3-small',
-            dimensions: 1536
-        });
+function getEmbeddingModel() {
+    if (!embeddingModel) {
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        if (!apiKey) {
+            throw new Error('GOOGLE_AI_API_KEY is required for embeddings');
+        }
+
+        genAI = new GoogleGenerativeAI(apiKey);
+        embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+        logger.info('Gemini embedding model initialized');
     }
-    return embeddingsInstance;
+    return embeddingModel;
 }
 
 /**
- * Generate embedding for text
+ * Generate embedding for text using Gemini
  */
 export async function generateEmbedding(text) {
-    const embeddings = getEmbeddings();
-    const vector = await embeddings.embedQuery(text);
-    return vector;
+    const model = getEmbeddingModel();
+
+    try {
+        const result = await model.embedContent(text);
+        return result.embedding.values;
+    } catch (error) {
+        logger.error('Failed to generate embedding:', error);
+        throw error;
+    }
+}
+
+/**
+ * Generate embeddings for multiple texts (batch)
+ */
+export async function generateEmbeddings(texts) {
+    const model = getEmbeddingModel();
+
+    try {
+        const results = await Promise.all(
+            texts.map(text => model.embedContent(text))
+        );
+        return results.map(r => r.embedding.values);
+    } catch (error) {
+        logger.error('Failed to generate batch embeddings:', error);
+        throw error;
+    }
 }
 
 /**
@@ -53,7 +80,7 @@ export async function embedProduct(productId) {
         const embedding = await generateEmbedding(text);
 
         product.embedding = embedding;
-        product.embeddingModel = 'text-embedding-3-small';
+        product.embeddingModel = 'text-embedding-004';
         product.embeddingUpdatedAt = new Date();
 
         await product.save();
@@ -82,6 +109,8 @@ export async function embedAllProducts(organizationId) {
         try {
             await embedProduct(product._id);
             success++;
+            // Small delay to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
             failed++;
         }
@@ -169,4 +198,11 @@ function cosineSimilarity(vecA, vecB) {
     }
 
     return dotProduct / (normA * normB);
+}
+
+/**
+ * Check if embedding service is available
+ */
+export function isEmbeddingAvailable() {
+    return !!process.env.GOOGLE_AI_API_KEY;
 }

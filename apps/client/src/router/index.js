@@ -61,6 +61,11 @@ const routes = [
                 path: 'announcements',
                 name: 'superadmin-announcements',
                 component: () => import('@/views/superadmin/AnnouncementsView.vue')
+            },
+            {
+                path: 'ai-stats',
+                name: 'superadmin-ai-stats',
+                component: () => import('@/views/superadmin/AIStatsView.vue')
             }
         ]
     },

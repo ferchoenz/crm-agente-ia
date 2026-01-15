@@ -1,18 +1,17 @@
-import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
-import { Organization, Message, Conversation, Product, Customer } from '../../models/index.js';
-import { decrypt } from '../encryption.service.js';
+import { Organization, Message, Conversation, Product, Customer, AIUsage } from '../../models/index.js';
+import { getModelRouter } from './model-router.service.js';
 import { logger } from '../../utils/logger.js';
 
 /**
  * AI Agent Service
- * Handles conversation with customers using LangChain + OpenAI
+ * Handles conversation with customers using multi-model routing
  */
 export class AIAgentService {
     constructor(organizationId) {
         this.organizationId = organizationId;
         this.organization = null;
-        this.llm = null;
+        this.router = null;
     }
 
     /**
@@ -25,29 +24,10 @@ export class AIAgentService {
             throw new Error('Organization not found');
         }
 
-        // Get API key - either from org or fallback to env
-        let apiKey = process.env.OPENAI_API_KEY;
+        // Get the model router
+        this.router = await getModelRouter();
 
-        if (this.organization.apiKeys?.openai?.encrypted) {
-            try {
-                apiKey = decrypt(this.organization.apiKeys.openai);
-            } catch (e) {
-                logger.warn('Failed to decrypt org OpenAI key, using default');
-            }
-        }
-
-        if (!apiKey) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        const aiConfig = this.organization.aiConfig || {};
-
-        this.llm = new ChatOpenAI({
-            openAIApiKey: apiKey,
-            modelName: aiConfig.model || 'gpt-4o-mini',
-            temperature: aiConfig.temperature || 0.7,
-            maxTokens: aiConfig.maxTokens || 500,
-        });
+        logger.info(`AI Agent initialized for org ${this.organizationId}`);
 
         return this;
     }
@@ -163,10 +143,12 @@ Instrucciones adicionales:
 
             // Add context based on intent
             let contextMessage = '';
+            let hasProducts = false;
 
             if (intent === 'inquiry' || intent === 'purchase') {
                 const products = await this.searchProducts(customerMessage);
                 if (products.length > 0) {
+                    hasProducts = true;
                     contextMessage = '\n\n[Productos relacionados encontrados:\n' +
                         products.map(p => `- ${p.name}: $${p.price} - ${p.description?.slice(0, 100) || ''}`).join('\n') +
                         ']';
@@ -189,23 +171,71 @@ Instrucciones adicionales:
 
             const messages = [systemMessage, ...history, humanMessage];
 
-            // Generate response
-            const response = await this.llm.invoke(messages);
+            // Generate response using router
+            const aiConfig = this.organization.aiConfig || {};
+            const forceLevel = aiConfig.routingMode === 'fixed' ? aiConfig.preferredLevel : null;
+
+            const response = await this.router.chat(messages, {
+                message: customerMessage,
+                context: {
+                    historyLength: history.length,
+                    hasProducts,
+                    requiresSearch: hasProducts
+                },
+                forceLevel,
+                temperature: aiConfig.temperature || 0.7,
+                maxTokens: aiConfig.maxTokens || 500
+            });
 
             const processingTime = Date.now() - startTime;
 
-            logger.info(`AI response generated in ${processingTime}ms for org ${this.organizationId}`);
+            // Record AI usage
+            await AIUsage.recordUsage({
+                organizationId: this.organizationId,
+                provider: response.provider,
+                model: response.model,
+                level: response.level,
+                inputTokens: response.inputTokens,
+                outputTokens: response.outputTokens,
+                responseTimeMs: response.responseTimeMs,
+                success: true,
+                messageReceived: true,
+                messageSent: true
+            });
+
+            logger.info(`AI response generated in ${processingTime}ms via ${response.provider} (${response.level}) for org ${this.organizationId}`);
 
             return {
                 content: response.content,
                 intent,
                 shouldHandoff: false,
-                tokensUsed: response.usage_metadata?.total_tokens || 0,
-                processingTime
+                tokensUsed: response.totalTokens || 0,
+                processingTime,
+                provider: response.provider,
+                level: response.level
             };
 
         } catch (error) {
             logger.error('AI generation error:', error);
+
+            // Record failed request
+            try {
+                await AIUsage.recordUsage({
+                    organizationId: this.organizationId,
+                    provider: 'unknown',
+                    model: 'unknown',
+                    level: 'L1',
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    responseTimeMs: Date.now() - startTime,
+                    success: false,
+                    messageReceived: true,
+                    messageSent: false
+                });
+            } catch (e) {
+                logger.error('Failed to record AI usage error:', e);
+            }
+
             throw error;
         }
     }

@@ -136,7 +136,8 @@ import {
   Activity as SystemIcon,
   Settings as SettingsIcon,
   ClipboardList as LogsIcon,
-  Megaphone as AnnouncementsIcon
+  Megaphone as AnnouncementsIcon,
+  Bot as AIStatsIcon
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -157,6 +158,7 @@ const navItems = [
 
 const systemNav = [
   { to: '/superadmin/system', label: 'Salud del Sistema', icon: SystemIcon },
+  { to: '/superadmin/ai-stats', label: 'Estadísticas de IA', icon: AIStatsIcon },
   { to: '/superadmin/settings', label: 'Configuración', icon: SettingsIcon },
   { to: '/superadmin/logs', label: 'Logs de Actividad', icon: LogsIcon },
   { to: '/superadmin/announcements', label: 'Anuncios', icon: AnnouncementsIcon }
@@ -175,6 +177,7 @@ const currentPageTitle = computed(() => {
     'superadmin-organizations': 'Organizaciones',
     'superadmin-organization-detail': 'Detalle de Organización',
     'superadmin-system': 'Salud del Sistema',
+    'superadmin-ai-stats': 'Estadísticas de IA',
     'superadmin-settings': 'Configuración Global',
     'superadmin-logs': 'Logs de Actividad',
     'superadmin-announcements': 'Anuncios'
