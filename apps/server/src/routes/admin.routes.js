@@ -188,21 +188,40 @@ router.delete('/customers/:id', requireAdmin, async (req, res) => {
 
 // Conversations
 router.get('/conversations', requireAgent, async (req, res) => {
-    const { Conversation } = await import('../models/index.js');
-    const { status, channelId, assignedTo, page = 1, limit = 20 } = req.query;
+    const { Conversation, Message } = await import('../models/index.js');
+    const { status, channelId, assignedTo, page = 1, limit = 100 } = req.query;
 
     const query = { ...req.tenantFilter };
-    if (status) query.status = status;
+
+    // Filter by status - default to open and pending conversations
+    if (status) {
+        query.status = { $in: status.split(',') };
+    }
+
     if (channelId) query.channel = channelId;
     if (assignedTo) query.assignedTo = assignedTo;
 
     const conversations = await Conversation.find(query)
-        .populate('customer', 'name phone avatar')
+        .populate('customer', 'name phone avatar email')
         .populate('channel', 'type name')
         .populate('assignedTo', 'name avatar')
+        .populate({
+            path: 'lastMessage',
+            select: 'content sentAt senderType'
+        })
         .sort({ lastMessageAt: -1 })
         .skip((page - 1) * limit)
-        .limit(parseInt(limit));
+        .limit(parseInt(limit))
+        .lean();
+
+    // Add unreadCount for each conversation
+    for (const conv of conversations) {
+        conv.unreadCount = await Message.countDocuments({
+            conversation: conv._id,
+            senderType: 'customer',
+            read: false
+        });
+    }
 
     res.json({ conversations });
 });
