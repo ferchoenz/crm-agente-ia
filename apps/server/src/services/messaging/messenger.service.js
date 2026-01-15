@@ -54,7 +54,12 @@ export class MessengerService {
             logger.info(`Messenger message sent to ${recipientId}`);
             return response.data;
         } catch (error) {
-            logger.error('Messenger send error:', error.response?.data || error.message);
+            const fbError = error.response?.data?.error;
+            if (fbError) {
+                logger.error(`Messenger send error: [${fbError.code}] ${fbError.message} - ${fbError.error_subcode || ''}`);
+            } else {
+                logger.error('Messenger send error:', error.message);
+            }
             throw error;
         }
     }
