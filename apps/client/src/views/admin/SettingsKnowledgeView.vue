@@ -155,7 +155,7 @@
             <label class="block text-sm font-medium text-slate-600 mb-1">Archivo (PDF o TXT)</label>
             <div 
               class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-400 transition-colors"
-              @click="fileInputRef?.click()"
+              @click="triggerFileInput"
               @drop.prevent="handleDrop"
               @dragover.prevent
             >
@@ -269,6 +269,12 @@ function handleDrop(e) {
   const file = e.dataTransfer.files[0]
   if (file && (file.type === 'application/pdf' || file.type === 'text/plain')) {
     selectedFile.value = file
+  }
+}
+
+function triggerFileInput() {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
   }
 }
 

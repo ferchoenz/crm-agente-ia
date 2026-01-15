@@ -259,9 +259,9 @@ onMounted(async () => {
     }
   }
 
-  // Listen for socket events
-  socket.on('message:new', handleNewMessage)
-  socket.on('conversation:updated', handleConversationUpdate)
+  // Listen for socket events using the service functions
+  socket.onNewMessage(handleNewMessage)
+  socket.onConversationUpdated(handleConversationUpdate)
 })
 
 async function loadConversations() {
@@ -284,8 +284,8 @@ async function selectConversation(conv) {
   
   await loadMessages(conv._id)
   
-  // Join conversation room
-  socket.emit('join:conversation', conv._id)
+  // Join conversation room using socket service
+  socket.joinConversation(conv._id)
 }
 
 async function loadMessages(conversationId) {
@@ -311,14 +311,11 @@ async function sendMessage() {
 
   sending.value = true
   try {
-    socket.emit('message:send', {
-      conversationId: selectedConv.value._id,
-      content: newMessage.value.trim()
-    })
-    
+    await socket.sendMessage(selectedConv.value._id, newMessage.value.trim())
     newMessage.value = ''
   } catch (error) {
     console.error('Error sending message:', error)
+    alert('Error al enviar mensaje')
   } finally {
     sending.value = false
   }
@@ -328,11 +325,7 @@ async function toggleAI() {
   if (!selectedConv.value) return
 
   try {
-    socket.emit('ai:toggle', {
-      conversationId: selectedConv.value._id,
-      enabled: !selectedConv.value.aiEnabled
-    })
-    
+    socket.toggleAI(selectedConv.value._id, !selectedConv.value.aiEnabled)
     selectedConv.value.aiEnabled = !selectedConv.value.aiEnabled
   } catch (error) {
     console.error('Error toggling AI:', error)
