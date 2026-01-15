@@ -1,6 +1,11 @@
 import { KnowledgeDocument } from '../models/KnowledgeDocument.js';
 import { generateEmbedding } from './ai/embedding.service.js';
 import { logger } from '../utils/logger.js';
+import { createRequire } from 'module';
+
+// pdf-parse is CommonJS, need to use require
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 /**
  * Knowledge Base Service
@@ -208,7 +213,6 @@ export async function toggleDocumentActive(documentId, organizationId, isActive)
  */
 export async function extractTextFromPDF(buffer) {
     try {
-        const pdfParse = (await import('pdf-parse')).default;
         const data = await pdfParse(buffer);
         return data.text;
     } catch (error) {
