@@ -9,9 +9,17 @@ let io = null;
  * Initialize Socket.IO server
  */
 export function initializeSocket(httpServer) {
+    const allowedOrigins = [
+        process.env.CLIENT_URL || 'http://localhost:5173',
+        'https://agentify-chat.com',
+        'https://www.agentify-chat.com',
+        'http://localhost:5173',
+        'http://localhost:3000'
+    ];
+
     io = new Server(httpServer, {
         cors: {
-            origin: process.env.CLIENT_URL || 'http://localhost:5173',
+            origin: allowedOrigins,
             methods: ['GET', 'POST'],
             credentials: true
         },
