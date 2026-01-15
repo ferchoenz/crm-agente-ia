@@ -164,7 +164,10 @@
             </div>
             
             <!-- Notifications -->
-            <NotificationsDropdown />
+            <button class="relative p-2 hover:bg-slate-100 rounded-xl transition-colors">
+              <BellIcon class="w-5 h-5 text-slate-600" />
+              <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
+            </button>
           </div>
         </header>
         
@@ -186,7 +189,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import LoadingScreen from '@/components/ui/LoadingScreen.vue'
-import NotificationsDropdown from '@/components/admin/NotificationsDropdown.vue'
 import api from '@/services/api'
 import { initSocket, onNewMessage, offEvent } from '@/services/socket'
 import {

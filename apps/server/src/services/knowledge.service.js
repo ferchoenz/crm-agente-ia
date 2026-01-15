@@ -1,6 +1,6 @@
-import { KnowledgeDocument } from '../models/index.js';
-import { generateEmbedding } from './ai/embedding.service.js';
-import { logger } from '../utils/logger.js';
+import { KnowledgeDocument } from '../../models/KnowledgeDocument.js';
+import { generateEmbedding } from '../ai/embedding.service.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Knowledge Base Service

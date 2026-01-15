@@ -28,23 +28,8 @@ app.set('io', io);
 
 // Middleware
 app.use(helmet());
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://agentify-chat.com',
-  'https://www.agentify-chat.com',
-  process.env.CLIENT_URL
-].filter(Boolean);
-
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true
 }));
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
