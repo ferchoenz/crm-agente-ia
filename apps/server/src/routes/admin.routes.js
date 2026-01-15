@@ -319,4 +319,25 @@ router.post('/team', requireAdmin, async (req, res) => {
     });
 });
 
+// Knowledge Base
+import {
+    listDocuments,
+    getDocument,
+    uploadDocument,
+    createTextDocument,
+    removeDocument,
+    toggleActive,
+    getDocumentStatus,
+    uploadMiddleware
+} from '../controllers/admin/knowledge.controller.js';
+
+router.get('/knowledge', requireAdmin, listDocuments);
+router.get('/knowledge/:id', requireAdmin, getDocument);
+router.get('/knowledge/:id/status', requireAdmin, getDocumentStatus);
+router.post('/knowledge/upload', requireAdmin, uploadMiddleware, uploadDocument);
+router.post('/knowledge/text', requireAdmin, createTextDocument);
+router.patch('/knowledge/:id/toggle', requireAdmin, toggleActive);
+router.delete('/knowledge/:id', requireAdmin, removeDocument);
+
 export default router;
+

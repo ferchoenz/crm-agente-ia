@@ -1,6 +1,7 @@
 import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
 import { Organization, Message, Conversation, Product, Customer, AIUsage } from '../../models/index.js';
 import { getModelRouter } from './model-router.service.js';
+import { searchKnowledge } from '../knowledge.service.js';
 import { logger } from '../../utils/logger.js';
 
 /**
@@ -153,6 +154,15 @@ Instrucciones adicionales:
                         products.map(p => `- ${p.name}: $${p.price} - ${p.description?.slice(0, 100) || ''}`).join('\n') +
                         ']';
                 }
+            }
+
+            // Search Knowledge Base for relevant context
+            const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 3);
+            if (knowledgeChunks.length > 0) {
+                const knowledgeContext = knowledgeChunks.map(chunk =>
+                    `[${chunk.documentTitle}]: ${chunk.content}`
+                ).join('\n\n');
+                contextMessage += `\n\n[INFORMACIÓN DE LA EMPRESA - USA ESTA INFORMACIÓN PARA RESPONDER:\n${knowledgeContext}\n]`;
             }
 
             if (intent === 'human_handoff') {

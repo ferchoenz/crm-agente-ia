@@ -164,10 +164,62 @@
             </div>
             
             <!-- Notifications -->
-            <button class="relative p-2 hover:bg-slate-100 rounded-xl transition-colors">
-              <BellIcon class="w-5 h-5 text-slate-600" />
-              <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
-            </button>
+            <div class="relative">
+              <button 
+                @click="showNotifications = !showNotifications"
+                class="relative p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                :class="{ 'bg-slate-100': showNotifications }"
+              >
+                <BellIcon class="w-5 h-5 text-slate-600" />
+                <span v-if="notifications.length > 0" class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+              </button>
+
+              <!-- Notifications Dropdown -->
+              <div 
+                v-if="showNotifications"
+                class="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-50 transform origin-top-right transition-all"
+              >
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                  <h3 class="font-semibold text-slate-800">Notificaciones</h3>
+                  <button v-if="notifications.length > 0" @click="notifications = []" class="text-xs text-primary-600 hover:text-primary-700 font-medium">
+                    Limpiar todo
+                  </button>
+                </div>
+                
+                <div class="max-h-[400px] overflow-y-auto">
+                  <div v-if="notifications.length === 0" class="p-8 text-center text-slate-500">
+                    <BellIcon class="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <p class="text-sm">No tienes notificaciones</p>
+                  </div>
+                  
+                  <div v-else class="divide-y divide-slate-50">
+                    <div 
+                      v-for="(notification, index) in notifications" 
+                      :key="index"
+                      class="p-4 hover:bg-slate-50 transition-colors cursor-pointer relative group"
+                      @click="handleNotificationClick(notification)"
+                    >
+                      <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0" :class="getNotificationColor(notification.type)">
+                          <component :is="getNotificationIcon(notification.type)" class="w-4 h-4" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium text-slate-800">{{ notification.title }}</p>
+                          <p class="text-xs text-slate-500 mt-0.5">{{ notification.message }}</p>
+                          <p class="text-[10px] text-slate-400 mt-1">{{ formatTime(notification.createdAt) }}</p>
+                        </div>
+                        <button 
+                          @click.stop="removeNotification(index)"
+                          class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 transition-all"
+                        >
+                          <XIcon class="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </header>
         
@@ -185,12 +237,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import { formatDistanceToNow } from 'date-fns'
+import { es } from 'date-fns/locale'
 import LoadingScreen from '@/components/ui/LoadingScreen.vue'
 import api from '@/services/api'
-import { initSocket, onNewMessage, offEvent } from '@/services/socket'
+import { initSocket, onNewMessage, offEvent, getIO } from '@/services/socket'
 import {
   Zap as ZapIcon,
   LayoutDashboard as DashboardIcon,
@@ -208,7 +262,11 @@ import {
   Bell as BellIcon,
   Menu as MenuIcon,
   Lock as LockIcon,
-  Unlock as UnlockIcon
+  Unlock as UnlockIcon,
+  X as XIcon,
+  AlertCircle as AlertCircleIcon,
+  CheckCircle as CheckCircleIcon,
+  MessageSquare as MessageSquareIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -221,8 +279,10 @@ const isLocked = ref(false)
 const isHovering = ref(false)
 const mobileMenuOpen = ref(false)
 const showUserMenu = ref(false)
+const showNotifications = ref(false)
 const searchQuery = ref('')
 const unreadCount = ref(0)
+const notifications = ref([])
 
 const isExpanded = computed(() => isLocked.value || isHovering.value)
 const sidebarWidth = computed(() => isExpanded.value ? 'w-64' : 'w-20')

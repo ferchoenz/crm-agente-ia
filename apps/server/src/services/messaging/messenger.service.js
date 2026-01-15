@@ -31,9 +31,58 @@ export class MessengerService {
     }
 
     /**
-     * Send a text message
+     * Send a text message (handles long messages by splitting)
      */
     async sendTextMessage(recipientId, text) {
+        const MAX_LENGTH = 2000;
+
+        // Split long messages into chunks
+        if (text.length > MAX_LENGTH) {
+            const chunks = this.splitMessage(text, MAX_LENGTH);
+            for (const chunk of chunks) {
+                await this._sendSingleMessage(recipientId, chunk);
+                // Small delay between messages
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+            return { success: true, chunks: chunks.length };
+        }
+
+        return this._sendSingleMessage(recipientId, text);
+    }
+
+    /**
+     * Split message into chunks at sentence boundaries
+     */
+    splitMessage(text, maxLength) {
+        const chunks = [];
+        let remaining = text;
+
+        while (remaining.length > 0) {
+            if (remaining.length <= maxLength) {
+                chunks.push(remaining);
+                break;
+            }
+
+            // Find a good break point (sentence end or space)
+            let breakPoint = remaining.lastIndexOf('. ', maxLength);
+            if (breakPoint < maxLength / 2) {
+                breakPoint = remaining.lastIndexOf(' ', maxLength);
+            }
+            if (breakPoint < maxLength / 2) {
+                breakPoint = maxLength;
+            }
+
+            chunks.push(remaining.slice(0, breakPoint + 1).trim());
+            remaining = remaining.slice(breakPoint + 1).trim();
+        }
+
+        return chunks;
+    }
+
+    /**
+     * Send a single message to Messenger API
+     */
+    async _sendSingleMessage(recipientId, text) {
         try {
             const response = await axios.post(
                 `${MESSENGER_API_URL}/me/messages`,
@@ -482,6 +531,16 @@ async function processWithAI(channel, messenger, conversation, customer, senderI
             conversation.aiPausedReason = 'Customer requested human';
             conversation.priority = 'high';
             await conversation.save();
+
+            // Emit notification to admins
+            const { emitToOrganization } = await import('../socket.service.js');
+            emitToOrganization(channel.organization._id, 'notification', {
+                type: 'handoff',
+                title: 'Cliente solicita humano 🙋‍♂️',
+                message: `El cliente ${customer.name || customer.phone} solicitó hablar con un asesor.`,
+                conversationId: conversation._id,
+                timestamp: new Date()
+            });
         }
 
         // Send response via Messenger

@@ -134,6 +134,11 @@ const routes = [
                 path: 'settings/team',
                 name: 'settings-team',
                 component: () => import('@/views/admin/SettingsTeamView.vue')
+            },
+            {
+                path: 'settings/knowledge',
+                name: 'settings-knowledge',
+                component: () => import('@/views/admin/SettingsKnowledgeView.vue')
             }
         ]
     },
