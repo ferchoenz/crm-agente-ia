@@ -317,7 +317,7 @@ async function sendMessage() {
     // Send via API instead of WebSocket for reliability
     const response = await api.post(`/admin/conversations/${selectedConv.value._id}/messages`, {
       content: messageContent,
-      senderType: 'agent'
+      senderType: 'human' // Fixed: was 'agent', must be 'human'
     })
 
     // Add message to local state
