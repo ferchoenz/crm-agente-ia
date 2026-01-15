@@ -273,7 +273,7 @@ router.post('/conversations/:id/messages', requireAgent, async (req, res) => {
             customer: conversation.customer,
             channel: conversation.channel._id,
             content,
-            senderType: 'agent',
+            senderType: 'human', // FIXED: was 'agent', must be 'human'
             sentBy: req.user._id,
             sentAt: new Date(),
             delivered: true,
