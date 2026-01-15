@@ -307,3 +307,12 @@ Respondes dudas de clientes basándote ESTRICTAMENTE en:
         }
     }
 }
+
+/**
+ * Factory function to create and initialize an AI agent
+ */
+export async function createAIAgent(organizationId) {
+    const agent = new AIAgentService(organizationId);
+    await agent.initialize();
+    return agent;
+}
