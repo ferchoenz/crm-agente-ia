@@ -30,14 +30,23 @@ export class GeminiProvider {
             // Convert messages to Gemini format
             const { systemInstruction, history, userMessage } = this.formatMessages(messages);
 
-            const chat = model.startChat({
+            // System instruction must be an object with parts
+            const chatConfig = {
                 history,
                 generationConfig: {
                     temperature: options.temperature || 0.7,
                     maxOutputTokens: options.maxTokens || 500,
-                },
-                systemInstruction: systemInstruction || undefined
-            });
+                }
+            };
+
+            // Only add system instruction if provided
+            if (systemInstruction) {
+                chatConfig.systemInstruction = {
+                    parts: [{ text: systemInstruction }]
+                };
+            }
+
+            const chat = model.startChat(chatConfig);
 
             const result = await chat.sendMessage(userMessage);
             const response = await result.response;
