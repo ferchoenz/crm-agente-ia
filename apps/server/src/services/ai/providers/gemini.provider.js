@@ -12,7 +12,7 @@ export class GeminiProvider {
         }
 
         this.genAI = new GoogleGenerativeAI(apiKey);
-        this.defaultModel = process.env.AI_L2_MODEL || 'gemini-1.5-flash';
+        this.defaultModel = process.env.AI_L2_MODEL || 'gemini-2.0-flash-exp';
         this.provider = 'gemini';
     }
 
