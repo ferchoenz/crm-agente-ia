@@ -89,6 +89,41 @@ router.get('/ai/status', requireAdmin, async (req, res) => {
     }
 });
 
+// Profile - Change password
+router.put('/profile/password', async (req, res) => {
+    try {
+        const { User } = await import('../models/index.js');
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Se requiere contraseña actual y nueva' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+        }
+
+        const user = await User.findById(req.user._id).select('+password');
+
+        if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+        }
+
+        user.password = newPassword;
+        await user.save();
+
+        res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(500).json({ error: 'Error al cambiar contraseña' });
+    }
+});
+
 // Customers CRUD
 router.get('/customers', requireAgent, async (req, res) => {
     const { Customer } = await import('../models/index.js');
@@ -293,9 +328,14 @@ router.get('/conversations/:id', requireAgent, async (req, res) => {
         return res.status(404).json({ error: 'Conversation not found' });
     }
 
+    // Get last 50 messages (descending) then reverse for correct display order
     const messages = await Message.find({ conversation: conversation._id })
-        .sort({ createdAt: 1 })
-        .limit(100);
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+
+    // Reverse to get oldest first (for display)
+    messages.reverse();
 
     // Mark as read
     await conversation.markAsRead();
