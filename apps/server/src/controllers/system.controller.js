@@ -156,12 +156,89 @@ export const getSystemHealth = asyncHandler(async (req, res) => {
         dbStats = { error: 'Could not fetch DB stats' };
     }
 
+    // Disk space (Linux/Unix)
+    let diskInfo = { available: 0, total: 0, used: 0, usedPercentage: 0 };
+    try {
+        const fs = await import('fs');
+        const { promisify } = await import('util');
+        const exec = promisify((await import('child_process')).exec);
+
+        // Use df command for disk info (works on Linux/macOS)
+        const { stdout } = await exec("df -k / | tail -1 | awk '{print $2,$3,$4}'");
+        const [total, used, available] = stdout.trim().split(/\s+/).map(Number);
+
+        diskInfo = {
+            total: total * 1024, // Convert KB to bytes
+            used: used * 1024,
+            available: available * 1024,
+            usedPercentage: ((used / total) * 100).toFixed(2)
+        };
+    } catch (diskError) {
+        // Fallback for Windows or if df fails
+        diskInfo = { error: 'Disk info not available', message: diskError.message };
+    }
+
+    // AI Provider health checks
+    let aiProviders = {
+        groq: { status: 'unknown', latency: null },
+        deepseek: { status: 'unknown', latency: null },
+        gemini: { status: 'unknown', latency: null }
+    };
+
+    try {
+        const { getModelRouter } = await import('../services/ai/model-router.service.js');
+        const router = await getModelRouter();
+        const routerStatus = router.getStatus();
+
+        aiProviders = {
+            L1_Groq: {
+                status: routerStatus.L1?.available ? 'healthy' : 'unavailable',
+                configured: !!process.env.GROQ_API_KEY
+            },
+            L2_Gemini: {
+                status: routerStatus.L2?.available ? 'healthy' : 'unavailable',
+                configured: !!process.env.GOOGLE_API_KEY
+            },
+            L3_DeepSeek: {
+                status: routerStatus.L3?.available ? 'healthy' : 'unavailable',
+                configured: !!process.env.DEEPSEEK_API_KEY
+            }
+        };
+    } catch (aiError) {
+        // Silent fail - AI might not be configured
+    }
+
     // Uptime
     const processUptime = process.uptime();
     const systemUptime = os.uptime();
 
+    // Overall status calculation
+    const memUsedPercent = ((totalMem - freeMem) / totalMem) * 100;
+    const diskUsedPercent = parseFloat(diskInfo.usedPercentage) || 0;
+
+    let overallStatus = 'healthy';
+    const warnings = [];
+
+    if (dbStatus !== 'healthy') {
+        overallStatus = 'critical';
+        warnings.push('Database connection unhealthy');
+    }
+    if (memUsedPercent > 90) {
+        overallStatus = overallStatus === 'critical' ? 'critical' : 'warning';
+        warnings.push(`High memory usage: ${memUsedPercent.toFixed(1)}%`);
+    }
+    if (diskUsedPercent > 85) {
+        overallStatus = overallStatus === 'critical' ? 'critical' : 'warning';
+        warnings.push(`High disk usage: ${diskUsedPercent}%`);
+    }
+    if (loadAvg[0] > cpus.length * 2) {
+        overallStatus = overallStatus === 'critical' ? 'critical' : 'warning';
+        warnings.push(`High CPU load: ${loadAvg[0].toFixed(2)}`);
+    }
+
     res.json({
-        status: dbStatus === 'healthy' ? 'healthy' : 'degraded',
+        status: overallStatus,
+        warnings,
         timestamp: new Date().toISOString(),
         latency: Date.now() - startTime,
 
@@ -182,9 +259,11 @@ export const getSystemHealth = asyncHandler(async (req, res) => {
             system: {
                 total: totalMem,
                 free: freeMem,
-                usedPercentage: (((totalMem - freeMem) / totalMem) * 100).toFixed(2)
+                usedPercentage: memUsedPercent.toFixed(2)
             }
         },
+
+        disk: diskInfo,
 
         cpu: {
             cores: cpus.length,
@@ -193,7 +272,8 @@ export const getSystemHealth = asyncHandler(async (req, res) => {
                 '1m': loadAvg[0]?.toFixed(2),
                 '5m': loadAvg[1]?.toFixed(2),
                 '15m': loadAvg[2]?.toFixed(2)
-            }
+            },
+            loadStatus: loadAvg[0] > cpus.length ? 'high' : 'normal'
         },
 
         database: {
@@ -207,6 +287,8 @@ export const getSystemHealth = asyncHandler(async (req, res) => {
             storageSize: dbStats.storageSize,
             indexes: dbStats.indexes
         },
+
+        aiProviders,
 
         system: {
             uptime: systemUptime,

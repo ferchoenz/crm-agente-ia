@@ -277,7 +277,10 @@ import {
   Bell as BellIcon,
   Menu as MenuIcon,
   Lock as LockIcon,
-  Unlock as UnlockIcon
+  Unlock as UnlockIcon,
+  UserPlus as UserPlusIcon,
+  AlertCircle as AlertCircleIcon,
+  Loader as LoaderIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()

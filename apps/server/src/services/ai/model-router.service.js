@@ -1,6 +1,7 @@
 import { logger } from '../../utils/logger.js';
 import { createGroqProvider } from './providers/groq.provider.js';
 import { createOpenRouterProvider, createQwenProvider } from './providers/openrouter.provider.js';
+import { AIUsage } from '../../models/AIUsage.js';
 
 /**
  * Model Router Service
@@ -142,6 +143,7 @@ export class ModelRouterService {
         }
 
         const { message, context } = options;
+        const startTime = Date.now();
 
         // Classify complexity
         const requestedLevel = options.forceLevel || this.classifyComplexity(
@@ -166,20 +168,70 @@ export class ModelRouterService {
             try {
                 logger.info(`Routing to ${level} provider for message classification`);
                 const response = await provider.chat(messages, options);
+                const responseTime = Date.now() - startTime;
+
+                // Record AI usage for statistics
+                if (context?.organizationId) {
+                    try {
+                        const providerName = this.getProviderName(level);
+                        await AIUsage.recordUsage({
+                            organizationId: context.organizationId,
+                            provider: providerName,
+                            model: response.model || providerName,
+                            level,
+                            inputTokens: response.inputTokens || 0,
+                            outputTokens: response.outputTokens || 0,
+                            responseTimeMs: responseTime,
+                            success: true,
+                            messageReceived: true,
+                            messageSent: true
+                        });
+                    } catch (usageError) {
+                        logger.warn('Failed to record AI usage:', usageError.message);
+                    }
+                }
 
                 return {
                     ...response,
                     level,
-                    classifiedLevel: requestedLevel
+                    classifiedLevel: requestedLevel,
+                    processingTime: responseTime
                 };
             } catch (error) {
                 logger.warn(`Provider ${level} failed: ${error.message}, trying next...`);
                 lastError = error;
+
+                // Record failed request
+                if (context?.organizationId) {
+                    try {
+                        await AIUsage.recordUsage({
+                            organizationId: context.organizationId,
+                            provider: this.getProviderName(level),
+                            model: 'unknown',
+                            level,
+                            success: false
+                        });
+                    } catch (usageError) {
+                        // Ignore usage tracking errors
+                    }
+                }
             }
         }
 
         // All providers failed
         throw lastError || new Error('All AI providers failed');
+    }
+
+    /**
+     * Get provider name for a level
+     */
+    getProviderName(level) {
+        const names = {
+            L1: 'groq',
+            L2: 'qwen',
+            L3: 'deepseek'
+        };
+        return names[level] || 'unknown';
     }
 
     /**

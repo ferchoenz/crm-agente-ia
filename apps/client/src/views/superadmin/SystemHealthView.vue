@@ -174,6 +174,74 @@
         </div>
       </div>
 
+      <!-- Disk Space -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+            <HardDriveIcon class="w-5 h-5 text-slate-600" />
+          </div>
+          <h3 class="font-semibold text-slate-800">Disco</h3>
+        </div>
+        <div class="space-y-3" v-if="health.disk && !health.disk.error">
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-slate-500">Uso</span>
+              <span :class="parseFloat(health.disk?.usedPercentage) > 85 ? 'text-rose-600' : 'text-slate-800'">
+                {{ health.disk?.usedPercentage }}%
+              </span>
+            </div>
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                class="h-full rounded-full transition-all"
+                :class="parseFloat(health.disk?.usedPercentage) > 85 ? 'bg-rose-500' : 'bg-slate-500'"
+                :style="{ width: (health.disk?.usedPercentage || 0) + '%' }"
+              ></div>
+            </div>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Usado</span>
+            <span class="text-slate-800 font-medium">{{ formatBytes(health.disk?.used) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Disponible</span>
+            <span class="text-slate-800 font-medium">{{ formatBytes(health.disk?.available) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Total</span>
+            <span class="text-slate-800 font-medium">{{ formatBytes(health.disk?.total) }}</span>
+          </div>
+        </div>
+        <div v-else class="text-slate-500 text-sm">
+          No disponible en este sistema
+        </div>
+      </div>
+
+      <!-- AI Providers -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center">
+            <SparklesIcon class="w-5 h-5 text-cyan-600" />
+          </div>
+          <h3 class="font-semibold text-slate-800">Proveedores IA</h3>
+        </div>
+        <div class="space-y-3">
+          <div 
+            v-for="(provider, key) in health.aiProviders" 
+            :key="key"
+            class="flex justify-between items-center"
+          >
+            <span class="text-slate-500">{{ key }}</span>
+            <span 
+              class="font-medium flex items-center gap-1"
+              :class="provider.status === 'healthy' ? 'text-emerald-600' : 'text-slate-400'"
+            >
+              <span class="w-2 h-2 rounded-full" :class="provider.status === 'healthy' ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+              {{ provider.status === 'healthy' ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick Stats -->
       <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div class="flex items-center gap-3 mb-4">
@@ -218,7 +286,8 @@ import {
   Activity as ActivityIcon,
   Database as DatabaseIcon,
   HardDrive as HardDriveIcon,
-  BarChart3 as BarChartIcon
+  BarChart3 as BarChartIcon,
+  Sparkles as SparklesIcon
 } from 'lucide-vue-next'
 
 const loading = ref(false)
