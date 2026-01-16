@@ -28,7 +28,15 @@ const channelSchema = new mongoose.Schema({
         phoneNumber: String,
         displayName: String,
         qualityRating: String,
-        verifiedName: String
+        verifiedName: String,
+
+        // Embedded Sign-Up specific fields
+        accountMode: String, // 'SANDBOX' or 'LIVE'
+        certificate: String, // Certificate for official business account
+        codeVerificationStatus: String, // Verification status
+        nameStatus: String, // Name display status
+        isEmbeddedSignup: { type: Boolean, default: false },
+        sharedWABA: { type: Boolean, default: false }
     },
 
     // Facebook specific

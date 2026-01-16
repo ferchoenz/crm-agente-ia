@@ -5,6 +5,7 @@ import { CalendarService, isCalendarConnected } from '../services/integrations/c
 import { encrypt, decrypt } from '../services/encryption.service.js';
 import { Channel } from '../models/index.js';
 import { logger } from '../utils/logger.js';
+import EmbeddedSignUpService from '../services/integrations/embedded-signup.service.js';
 
 const router = Router();
 
@@ -134,9 +135,73 @@ router.post('/google/calendar/appointments', requireAdmin, async (req, res) => {
 
 // ==================== WHATSAPP ====================
 
+// ==================== WHATSAPP ====================
+
+/**
+ * Get embedded signup configuration
+ */
+router.get('/whatsapp/embedded-signup/config', requireAdmin, (req, res) => {
+    res.json({
+        appId: process.env.FACEBOOK_APP_ID,
+        configId: process.env.WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID
+    });
+});
+
+/**
+ * Embedded signup callback - complete the signup flow
+ */
+router.post('/whatsapp/embedded-signup/callback', requireAdmin, async (req, res) => {
+    try {
+        const { code, wabaId, phoneNumberId } = req.body;
+
+        if (!code || !wabaId || !phoneNumberId) {
+            return res.status(400).json({
+                error: 'Missing required parameters: code, wabaId, phoneNumberId'
+            });
+        }
+
+        const result = await EmbeddedSignUpService.completeSignup(
+            req.user.organizationId,
+            code,
+            wabaId,
+            phoneNumberId
+        );
+
+        logger.info(`Embedded signup completed for org ${req.user.organizationId}`);
+
+        res.json(result);
+    } catch (error) {
+        logger.error('Embedded signup callback error:', error);
+        res.status(500).json({
+            error: error.message || 'Failed to complete embedded signup'
+        });
+    }
+});
+
+/**
+ * Get phone numbers for a WABA (after user grants access)
+ */
+router.post('/whatsapp/waba/phone-numbers', requireAdmin, async (req, res) => {
+    try {
+        const { wabaId, accessToken } = req.body;
+
+        if (!wabaId || !accessToken) {
+            return res.status(400).json({ error: 'WABA ID and access token are required' });
+        }
+
+        const phoneNumbers = await EmbeddedSignUpService.getPhoneNumbers(wabaId, accessToken);
+
+        res.json({ phoneNumbers });
+    } catch (error) {
+        logger.error('Failed to get phone numbers:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 /**
  * Connect WhatsApp (save credentials from Embedded Signup)
  */
+
 router.post('/whatsapp/connect', requireAdmin, async (req, res) => {
     try {
         const { phoneNumberId, wabaId, accessToken, phoneNumber, displayName } = req.body;

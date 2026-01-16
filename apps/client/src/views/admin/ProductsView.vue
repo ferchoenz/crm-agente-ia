@@ -89,37 +89,105 @@
         
         <form @submit.prevent="saveProduct" class="p-6 space-y-4">
           <div class="grid grid-cols-2 gap-4">
+            <!-- Item Type Toggle -->
             <div class="col-span-2">
-              <label class="block text-sm font-medium text-slate-600 mb-1.5">Nombre del producto</label>
-              <input v-model="form.name" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="Ej: Lentes de sol Ray-Ban" required />
+              <label class="block text-sm font-medium text-slate-600 mb-2">Tipo de Item</label>
+              <div class="flex gap-3">
+                <button
+                  type="button"
+                  @click="form.itemType = 'product'"
+                  class="flex-1 px-4 py-3 rounded-xl border-2 font-medium transition-all flex items-center justify-center gap-2"
+                  :class="form.itemType === 'product' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'"
+                >
+                  <PackageIcon class="w-5 h-5" />
+                  Producto
+                </button>
+                <button
+                  type="button"
+                  @click="form.itemType = 'service'"
+                  class="flex-1 px-4 py-3 rounded-xl border-2 font-medium transition-all flex items-center justify-center gap-2"
+                  :class="form.itemType === 'service' ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'"
+                >
+                  <WrenchIcon class="w-5 h-5" />
+                  Servicio
+                </button>
+              </div>
+            </div>
+
+            <div class="col-span-2">
+              <label class="block text-sm font-medium text-slate-600 mb-1.5">{{ form.itemType === 'service' ? 'Nombre del servicio' : 'Nombre del producto' }}</label>
+              <input v-model="form.name" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" :placeholder="form.itemType === 'service' ? 'Ej: Desarrollo Web' : 'Ej: Lentes de sol Ray-Ban'" required />
             </div>
             
             <div>
               <label class="block text-sm font-medium text-slate-600 mb-1.5">Categoría</label>
-              <input v-model="form.category" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="Ej: Lentes de sol" />
+              <input v-model="form.category" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" :placeholder="form.itemType === 'service' ? 'Ej: Desarrollo' : 'Ej: Lentes de sol'" />
             </div>
             
             <div>
-              <label class="block text-sm font-medium text-slate-600 mb-1.5">SKU</label>
+              <label class="block text-sm font-medium text-slate-600 mb-1.5">SKU / Código</label>
               <input v-model="form.sku" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="Código único" />
             </div>
             
             <div class="col-span-2">
               <label class="block text-sm font-medium text-slate-600 mb-1.5">Descripción</label>
-              <textarea v-model="form.description" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none" rows="3" placeholder="Descripción del producto para el agente IA"></textarea>
+              <textarea v-model="form.description" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none" rows="3" :placeholder="form.itemType === 'service' ? 'Descripción detallada del servicio para el agente IA' : 'Descripción del producto para el agente IA'"></textarea>
+            </div>
+
+            <!-- Pricing Type (Services) -->
+            <div class="col-span-2" v-if="form.itemType === 'service'">
+              <label class="block text-sm font-medium text-slate-600 mb-2">Tipo de Precio</label>
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  @click="form.pricingType = 'fixed'"
+                  class="px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all"
+                  :class="form.pricingType === 'fixed' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'"
+                >
+                  💰 Precio Fijo
+                </button>
+                <button
+                  type="button"
+                  @click="form.pricingType = 'quote'"
+                  class="px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all"
+                  :class="form.pricingType === 'quote' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'"
+                >
+                  📋 Cotizar
+                </button>
+              </div>
             </div>
             
-            <div>
+            <!-- Fixed Price -->
+            <div v-if="form.pricingType === 'fixed' || form.itemType === 'product'">
               <label class="block text-sm font-medium text-slate-600 mb-1.5">Precio</label>
-              <input v-model.number="form.price" type="number" step="0.01" min="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="0.00" required />
+              <input v-model.number="form.price" type="number" step="0.01" min="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="0.00" :required="form.pricingType === 'fixed'" />
             </div>
             
-            <div>
+            <div v-if="form.pricingType === 'fixed' || form.itemType === 'product'">
               <label class="block text-sm font-medium text-slate-600 mb-1.5">Precio de oferta (opcional)</label>
               <input v-model.number="form.salePrice" type="number" step="0.01" min="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="0.00" />
             </div>
+
+            <!-- Quote Pricing Factors -->
+            <div class="col-span-2" v-if="form.pricingType === 'quote' && form.itemType === 'service'">
+              <label class="block text-sm font-medium text-slate-600 mb-1.5">Factores que afectan el precio</label>
+              <input v-model="form.priceFactorsStr" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="Ej: complejidad, número de páginas, horas estimadas" />
+              <p class="text-xs text-slate-500 mt-1">Separados por coma. El agente IA explicará que el precio depende de estos factores.</p>
+            </div>
+
+            <!-- Service-specific fields -->
+            <div v-if="form.itemType === 'service'">
+              <label class="block text-sm font-medium text-slate-600 mb-1.5">Duración estimada</label>
+              <input v-model="form.duration" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="Ej: 2-4 semanas, por hora" />
+            </div>
+
+            <div v-if="form.itemType === 'service'">
+              <label class="block text-sm font-medium text-slate-600 mb-1.5">Entregables</label>
+              <input v-model="form.deliverablesStr" type="text" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="Ej: diseño, código, documentación" />
+            </div>
             
-            <div>
+            <!-- Stock (Products only) -->
+            <div v-if="form.itemType === 'product'">
               <label class="block text-sm font-medium text-slate-600 mb-1.5">Stock</label>
               <input v-model.number="form.quantity" type="number" min="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="Cantidad disponible" />
             </div>
@@ -129,7 +197,7 @@
               <select v-model="form.status" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all">
                 <option value="active">Activo</option>
                 <option value="inactive">Inactivo</option>
-                <option value="out_of_stock">Sin stock</option>
+                <option v-if="form.itemType === 'product'" value="out_of_stock">Sin stock</option>
               </select>
             </div>
             
@@ -168,7 +236,8 @@ import api from '@/services/api'
 import {
   Search as SearchIcon,
   Plus as PlusIcon,
-  Package as PackageIcon
+  Package as PackageIcon,
+  Wrench as WrenchIcon
 } from 'lucide-vue-next'
 
 const loading = ref(true)
@@ -179,12 +248,17 @@ const showModal = ref(false)
 const editingProduct = ref(null)
 
 const form = reactive({
+  itemType: 'product',
   name: '',
   description: '',
   category: '',
   sku: '',
   price: 0,
   salePrice: null,
+  pricingType: 'fixed',
+  priceFactorsStr: '',
+  duration: '',
+  deliverablesStr: '',
   quantity: null,
   status: 'active',
   imageUrl: '',
@@ -219,15 +293,20 @@ async function loadProducts() {
 
 function editProduct(product) {
   editingProduct.value = product
+  form.itemType = product.itemType || 'product'
   form.name = product.name
   form.description = product.description || ''
   form.category = product.category || ''
   form.sku = product.sku || ''
   form.price = product.price || 0
-  form.salePrice = product.pricing?.salePrice || null
-  form.quantity = product.inventory?.quantity ?? null
+  form.salePrice = product.compareAtPrice || null
+  form.pricingType = product.pricingType || 'fixed'
+  form.priceFactorsStr = product.priceFactors?.join(', ') || ''
+  form.duration = product.duration || ''
+  form.deliverablesStr = product.deliverables?.join(', ') || ''
+  form.quantity = product.stock ?? null
   form.status = product.status || 'active'
-  form.imageUrl = product.media?.[0]?.url || ''
+  form.imageUrl = product.images?.[0]?.url || ''
   form.tagsStr = product.tags?.join(', ') || ''
   showModal.value = true
 }
@@ -236,12 +315,17 @@ function closeModal() {
   showModal.value = false
   editingProduct.value = null
   Object.assign(form, {
+    itemType: 'product',
     name: '',
     description: '',
     category: '',
     sku: '',
     price: 0,
     salePrice: null,
+    pricingType: 'fixed',
+    priceFactorsStr: '',
+    duration: '',
+    deliverablesStr: '',
     quantity: null,
     status: 'active',
     imageUrl: '',
@@ -254,16 +338,36 @@ async function saveProduct() {
   
   try {
     const data = {
+      itemType: form.itemType,
       name: form.name,
       description: form.description,
       category: form.category,
       sku: form.sku,
-      price: form.price,
       status: form.status,
-      pricing: form.salePrice ? { salePrice: form.salePrice } : undefined,
-      inventory: form.quantity !== null ? { quantity: form.quantity, trackInventory: true } : undefined,
-      media: form.imageUrl ? [{ type: 'image', url: form.imageUrl }] : undefined,
-      tags: form.tagsStr ? form.tagsStr.split(',').map(t => t.trim()).filter(Boolean) : []
+      tags: form.tagsStr ? form.tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [],
+      images: form.imageUrl ? [{ url: form.imageUrl, isPrimary: true }] : undefined,
+    }
+
+    // Pricing based on type
+    if (form.itemType === 'service' && form.pricingType === 'quote') {
+      data.pricingType = 'quote'
+      data.priceFactors = form.priceFactorsStr ? form.priceFactorsStr.split(',').map(f => f.trim()).filter(Boolean) : []
+    } else {
+      data.pricingType = 'fixed'
+      data.price = form.price
+      data.compareAtPrice = form.salePrice || undefined
+    }
+
+    // Service-specific fields
+    if (form.itemType === 'service') {
+      data.duration = form.duration || undefined
+      data.deliverables = form.deliverablesStr ? form.deliverablesStr.split(',').map(d => d.trim()).filter(Boolean) : []
+    }
+
+    // Product-specific fields (inventory)
+    if (form.itemType === 'product') {
+      data.stock = form.quantity ?? -1
+      data.trackInventory = form.quantity !== null
     }
     
     if (editingProduct.value) {
@@ -276,7 +380,7 @@ async function saveProduct() {
     closeModal()
   } catch (error) {
     console.error('Failed to save product:', error)
-    alert(error.response?.data?.error || 'Error al guardar producto')
+    alert(error.response?.data?.error || 'Error al guardar')
   } finally {
     saving.value = false
   }

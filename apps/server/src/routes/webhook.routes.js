@@ -75,6 +75,30 @@ router.post('/whatsapp', async (req, res) => {
                             // TODO: Update message status in DB
                         }
                     }
+
+                    // Handle account_update events (WABA changes)
+                    else if (change.field === 'account_update') {
+                        logger.info('Account update event received:', change.value);
+                        // Handle account updates (verification status, etc.)
+                    }
+
+                    // Handle account_alerts (message limits, quality)
+                    else if (change.field === 'account_alerts') {
+                        logger.warn('Account alert received:', change.value);
+                        // Handle alerts about message limits, quality rating, etc.
+                    }
+
+                    // Handle business_capability_update
+                    else if (change.field === 'business_capability_update') {
+                        logger.info('Business capability update:', change.value);
+                        // Handle changes in business capabilities
+                    }
+
+                    // Handle phone_number_quality_update
+                    else if (change.field === 'phone_number_quality_update') {
+                        logger.info('Phone number quality update:', change.value);
+                        // Handle quality rating changes
+                    }
                 }
             }
         }

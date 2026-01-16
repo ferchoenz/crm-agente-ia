@@ -66,6 +66,29 @@ router.put('/settings', requireAdmin, injectOrganization, async (req, res) => {
     res.json(org);
 });
 
+// AI Status (get model providers status)
+router.get('/ai/status', requireAdmin, async (req, res) => {
+    try {
+        const { getModelRouter } = await import('../services/ai/model-router.service.js');
+        const router = await getModelRouter();
+        const status = router.getStatus();
+
+        res.json({
+            providers: status,
+            initialized: router.initialized
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: 'Error getting AI status',
+            providers: {
+                L1: { available: false, name: 'Groq (Llama 3.1)' },
+                L2: { available: false, name: 'Qwen 2.5 32B' },
+                L3: { available: false, name: 'DeepSeek V3' }
+            }
+        });
+    }
+});
+
 // Customers CRUD
 router.get('/customers', requireAgent, async (req, res) => {
     const { Customer } = await import('../models/index.js');
@@ -164,6 +187,35 @@ router.put('/customers/:id', requireAgent, async (req, res) => {
     }
 
     res.json(customer);
+});
+
+// Generate AI summary for a customer
+router.post('/customers/:id/generate-summary', requireAgent, async (req, res) => {
+    try {
+        const { Customer } = await import('../models/index.js');
+        const { generateCustomerSummary } = await import('../services/ai/customerInsights.service.js');
+
+        const customer = await Customer.findOne({
+            _id: req.params.id,
+            ...req.tenantFilter
+        });
+
+        if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        const insights = await generateCustomerSummary(customer._id, req.user.organizationId);
+
+        if (!insights) {
+            return res.status(400).json({ error: 'No hay suficientes mensajes para generar un resumen' });
+        }
+
+        res.json({ success: true, insights });
+
+    } catch (error) {
+        console.error('Error generating customer summary:', error);
+        res.status(500).json({ error: 'Error al generar resumen' });
+    }
 });
 
 // Delete customer

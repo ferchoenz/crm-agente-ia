@@ -46,15 +46,23 @@
         </div>
       </div>
       
-      <!-- Connect button -->
-      <button @click="connectWhatsApp" class="btn-primary" :disabled="connectingWhatsApp">
-        <PlusIcon class="w-5 h-5 mr-2" />
-        {{ connectingWhatsApp ? 'Conectando...' : 'Conectar WhatsApp' }}
-      </button>
+      <!-- Connect with Embedded Signup -->
+      <WhatsAppEmbeddedSignup 
+        v-if="!connectingWhatsApp"
+        @success="handleWhatsAppSuccess" 
+        @error="handleWhatsAppError" 
+      />
       
-      <p class="text-xs text-slate-500 mt-3">
-        Se abrirá el flujo de Meta Business para vincular tu número
-      </p>
+      <!-- Manual connection option (advanced) -->
+      <div v-if="!connectingWhatsApp" class="mt-4">
+        <button 
+          @click="showWhatsAppModal = true" 
+          class="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
+        >
+          <SettingsIcon class="w-4 h-4" />
+          <span>Configuración manual (avanzado)</span>
+        </button>
+      </div>
     </div>
     
     <!-- Facebook Messenger Section -->
@@ -389,6 +397,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
+import WhatsAppEmbeddedSignup from '@/components/integrations/WhatsAppEmbeddedSignup.vue'
 import {
   MessageCircle as MessageCircleIcon,
   Phone as PhoneIcon,
@@ -524,6 +533,20 @@ async function checkCalendarStatus() {
 }
 
 // ============ WHATSAPP ============
+// Embedded signup success handler
+async function handleWhatsAppSuccess(channel) {
+  console.log('WhatsApp connected successfully:', channel)
+  await loadWhatsAppChannels()
+  // You can show a toast notification here if you have a toast system
+}
+
+// Embedded signup error handler
+function handleWhatsAppError(error) {
+  console.error('WhatsApp connection error:', error)
+  // You can show a toast notification here
+}
+
+// Manual connection (advanced option)
 function connectWhatsApp() {
   showWhatsAppModal.value = true
 }

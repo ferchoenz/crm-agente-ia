@@ -35,6 +35,41 @@
         </button>
       </div>
     </div>
+
+    <!-- Providers Status -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <ServerIcon class="w-5 h-5 text-primary-500" />
+          <h3 class="text-lg font-semibold text-slate-800">Estado de Proveedores IA</h3>
+        </div>
+        <button @click="loadAIStatus" class="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
+          <RefreshCwIcon class="w-4 h-4" />
+          Actualizar
+        </button>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div 
+          v-for="(level, key) in aiProviders" 
+          :key="key"
+          class="p-4 rounded-xl border-2 transition-all"
+          :class="level.available ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'"
+        >
+          <div class="flex items-center gap-3 mb-2">
+            <div 
+              class="w-3 h-3 rounded-full"
+              :class="level.available ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'"
+            ></div>
+            <span class="text-sm font-bold" :class="getLevelColor(key)">{{ key }}</span>
+          </div>
+          <div class="text-sm font-medium text-slate-800">{{ level.name }}</div>
+          <div class="text-xs text-slate-500 mt-1">
+            {{ level.available ? '✓ Operativo' : '✗ No configurado' }}
+          </div>
+        </div>
+      </div>
+    </div>
     
     <!-- Personality Section -->
     <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
@@ -277,10 +312,18 @@ import {
   Cpu as CpuIcon,
   Zap as ZapIcon,
   Settings as SettingsIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Server as ServerIcon,
+  RefreshCw as RefreshCwIcon
 } from 'lucide-vue-next'
 
 const saving = ref(false)
+
+const aiProviders = ref({
+  L1: { available: false, name: 'Groq (Llama 3.1)' },
+  L2: { available: false, name: 'Qwen 2.5 32B' },
+  L3: { available: false, name: 'DeepSeek V3' }
+})
 
 const settings = reactive({
   enabled: true,
@@ -325,7 +368,30 @@ onMounted(async () => {
   } catch (error) {
     console.error('Failed to load settings:', error)
   }
+  
+  // Load AI provider status
+  await loadAIStatus()
 })
+
+async function loadAIStatus() {
+  try {
+    const response = await api.get('/admin/ai/status')
+    if (response.data.providers) {
+      aiProviders.value = response.data.providers
+    }
+  } catch (error) {
+    console.error('Failed to load AI status:', error)
+  }
+}
+
+function getLevelColor(level) {
+  const colors = {
+    L1: 'text-emerald-600',
+    L2: 'text-amber-600',
+    L3: 'text-rose-600'
+  }
+  return colors[level] || 'text-slate-600'
+}
 
 async function saveSettings() {
   saving.value = true

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
-import { Channel, Customer, Conversation, Message, Organization } from '../../models/index.js';
+import { Channel, Customer, Conversation, Message, Organization, Notification } from '../../models/index.js';
 import { decrypt } from '../encryption.service.js';
 import { logger } from '../../utils/logger.js';
 import { createAIAgent } from '../ai/agent.service.js';
@@ -355,6 +355,22 @@ async function processWithAI(channel, conversation, customer, content) {
             conversation.aiPausedReason = 'Customer requested human';
             conversation.priority = 'high';
             await conversation.save();
+
+            // Create notification for team
+            try {
+                await Notification.create({
+                    organization: channel.organization._id,
+                    type: 'handoff_request',
+                    title: '🙋 Solicitud de Atención Humana',
+                    message: `${customer.name || customer.phone} desea hablar con un asesor`,
+                    relatedConversation: conversation._id,
+                    relatedCustomer: customer._id,
+                    priority: 'high'
+                });
+                logger.info(`Handoff notification created for conversation ${conversation._id}`);
+            } catch (notifError) {
+                logger.error('Failed to create handoff notification:', notifError);
+            }
         }
 
         // Send response via WhatsApp
@@ -387,12 +403,17 @@ async function processWithAI(channel, conversation, customer, content) {
         };
         await conversation.save();
 
-        // Update lead score
-        await agent.updateLeadScore(
-            customer._id,
-            aiResponse.intent,
-            conversation.stats.totalMessages
-        );
+        // Update lead score using signal detection
+        try {
+            const { detectBuyingSignals, updateCustomerLeadScore, processCustomerForInsights } = await import('../ai/customerInsights.service.js');
+            const signals = detectBuyingSignals(content);
+            await updateCustomerLeadScore(customer._id, signals);
+
+            // Trigger AI summary generation if enough messages
+            processCustomerForInsights(customer._id, channel.organization._id);
+        } catch (scoreError) {
+            logger.error('Error updating lead score:', scoreError);
+        }
 
         // Update org usage
         const org = await Organization.findById(channel.organization._id);
