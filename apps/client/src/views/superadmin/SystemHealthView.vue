@@ -242,6 +242,38 @@
         </div>
       </div>
 
+      <!-- RAG / Embeddings -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+            <SearchIcon class="w-5 h-5 text-violet-600" />
+          </div>
+          <h3 class="font-semibold text-slate-800">RAG / Embeddings</h3>
+        </div>
+        <div class="space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-500">Estado</span>
+            <span 
+              class="font-medium flex items-center gap-1"
+              :class="health.rag?.status === 'healthy' ? 'text-emerald-600' : 'text-slate-400'"
+            >
+              <span class="w-2 h-2 rounded-full" :class="health.rag?.status === 'healthy' ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+              {{ health.rag?.status === 'healthy' ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Proveedor</span>
+            <span class="text-slate-800 font-medium text-sm">{{ health.rag?.provider || 'N/A' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">API Key</span>
+            <span :class="health.rag?.configured ? 'text-emerald-600' : 'text-rose-500'" class="font-medium">
+              {{ health.rag?.configured ? '✓ Configurada' : '✗ Falta' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick Stats -->
       <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div class="flex items-center gap-3 mb-4">
@@ -287,7 +319,8 @@ import {
   Database as DatabaseIcon,
   HardDrive as HardDriveIcon,
   BarChart3 as BarChartIcon,
-  Sparkles as SparklesIcon
+  Sparkles as SparklesIcon,
+  Search as SearchIcon
 } from 'lucide-vue-next'
 
 const loading = ref(false)

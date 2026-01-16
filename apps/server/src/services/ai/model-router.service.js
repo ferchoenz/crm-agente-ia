@@ -239,9 +239,9 @@ export class ModelRouterService {
      */
     getStatus() {
         return {
-            L1: { available: !!this.providers.L1, name: 'Groq (Llama 3.1)' },
-            L2: { available: !!this.providers.L2, name: 'Gemini 1.5 Flash' },
-            L3: { available: !!this.providers.L3, name: 'DeepSeek V3' }
+            L1: { available: !!this.providers.L1, name: 'Groq (Llama 3.1 8B)' },
+            L2: { available: !!this.providers.L2, name: 'Qwen 2.5 32B (OpenRouter)' },
+            L3: { available: !!this.providers.L3, name: 'DeepSeek V3 (OpenRouter)' }
         };
     }
 }

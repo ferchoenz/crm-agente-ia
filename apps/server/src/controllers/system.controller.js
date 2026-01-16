@@ -193,19 +193,40 @@ export const getSystemHealth = asyncHandler(async (req, res) => {
         aiProviders = {
             L1_Groq: {
                 status: routerStatus.L1?.available ? 'healthy' : 'unavailable',
+                name: routerStatus.L1?.name || 'Groq (Llama 3.1)',
                 configured: !!process.env.GROQ_API_KEY
             },
-            L2_Gemini: {
+            L2_Qwen: {
                 status: routerStatus.L2?.available ? 'healthy' : 'unavailable',
-                configured: !!process.env.GOOGLE_API_KEY
+                name: routerStatus.L2?.name || 'Qwen 2.5 32B',
+                configured: !!process.env.OPENROUTER_API_KEY
             },
             L3_DeepSeek: {
                 status: routerStatus.L3?.available ? 'healthy' : 'unavailable',
-                configured: !!process.env.DEEPSEEK_API_KEY
+                name: routerStatus.L3?.name || 'DeepSeek V3',
+                configured: !!process.env.OPENROUTER_API_KEY
             }
         };
     } catch (aiError) {
         // Silent fail - AI might not be configured
+    }
+
+    // RAG/Embedding status
+    let ragStatus = {
+        status: 'unavailable',
+        provider: 'Gemini (text-embedding-004)',
+        configured: false
+    };
+
+    try {
+        const { isEmbeddingAvailable } = await import('../services/ai/embedding.service.js');
+        ragStatus = {
+            status: isEmbeddingAvailable() ? 'healthy' : 'unavailable',
+            provider: 'Gemini text-embedding-004',
+            configured: !!process.env.GOOGLE_AI_API_KEY
+        };
+    } catch (ragError) {
+        // Silent fail
     }
 
     // Uptime
@@ -289,6 +310,8 @@ export const getSystemHealth = asyncHandler(async (req, res) => {
         },
 
         aiProviders,
+
+        rag: ragStatus,
 
         system: {
             uptime: systemUptime,
