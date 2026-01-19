@@ -157,7 +157,7 @@ async function changePassword() {
   changingPassword.value = true
 
   try {
-    await api.put('/admin/profile/password', {
+    await api.put('/auth/password', {
       currentPassword: passwordForm.value.current,
       newPassword: passwordForm.value.new
     })
