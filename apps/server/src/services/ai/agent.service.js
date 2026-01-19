@@ -127,7 +127,7 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
 - Conecta con lo que ya sabe el cliente
 
 # 🏢 INFORMACIÓN DEL NEGOCIO (Prioridad Alta)
-- Si hay información en [INFORMACIÓN DEL NEGOCIO], ÚSALA para responder.
+- Si hay información en [INFORMACIÓN DEL NEGOCIO], ÚSÁLA para responder.
 - Si una política de la empresa contradice tu entrenamiento general, obedece la política de la empresa.
 - Si el cliente pregunta algo específico que está en el contexto (envíos, garantías), responde con esa información exacta.
 
@@ -137,6 +137,8 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
 - Dar información técnica sin verificar en contexto
 - Respuestas de más de 5 líneas
 - Terminar sin call-to-action
+- **NUNCA** incluir notas, paréntesis explicativos, o meta-comentarios como "(Nota: ...)" o "(Por favor...)" 
+- **NUNCA** citar documentos completos ni bloques de texto internos al cliente
 
 # ✅ EJEMPLOS DE RESPUESTAS EFECTIVAS
 
@@ -343,14 +345,15 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
                 }
             }
 
-            // KNOWLEDGE BASE (RAG): Search for relevant company info/policies for ALL intents
-            // This ensures policies like "No discounts" or "Free shipping > $500" are always applied
+            // KNOWLEDGE BASE (RAG): Search for relevant company info/policies
+            // Only inject if similarity is high enough to be truly relevant
             const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 3);
-            if (knowledgeChunks.length > 0) {
-                const knowledgeContext = knowledgeChunks.map(chunk =>
-                    `- ${chunk.content.slice(0, 300)}`
+            const relevantChunks = knowledgeChunks.filter(chunk => chunk.score > 0.75); // Filter by relevance
+            if (relevantChunks.length > 0) {
+                const knowledgeContext = relevantChunks.map(chunk =>
+                    `- ${chunk.content.slice(0, 200)}` // Shorter excerpts
                 ).join('\n');
-                contextMessage += `\n\n[INFORMACIÓN DEL NEGOCIO (Usar para responder):\n${knowledgeContext}\n]`;
+                contextMessage += `\n\n[INFORMACIÓN DEL NEGOCIO (Referencia, NO citar textualmente):\n${knowledgeContext}\n]`;
             }
 
             // Handle human handoff
@@ -384,7 +387,7 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
                     hasProducts: products.length > 0
                 },
                 temperature: aiConfig.personality?.temperature || 0.7,
-                maxTokens: 200, // Short responses
+                maxTokens: 400, // Increased to prevent truncation
                 forceLevel
             });
 

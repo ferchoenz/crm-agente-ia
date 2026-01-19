@@ -343,6 +343,28 @@ router.get('/conversations/:id', requireAgent, async (req, res) => {
     res.json({ conversation, messages });
 });
 
+// Delete conversation (admin only)
+router.delete('/conversations/:id', requireAdmin, async (req, res) => {
+    const { Conversation, Message } = await import('../models/index.js');
+
+    const conversation = await Conversation.findOne({
+        _id: req.params.id,
+        ...req.tenantFilter
+    });
+
+    if (!conversation) {
+        return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    // Delete all messages in this conversation
+    await Message.deleteMany({ conversation: conversation._id });
+
+    // Delete the conversation itself
+    await conversation.deleteOne();
+
+    res.json({ message: 'Conversation deleted successfully' });
+});
+
 // Send message from agent in manual mode
 router.post('/conversations/:id/messages', requireAgent, async (req, res) => {
     const { Message, Conversation, Channel } = await import('../models/index.js');

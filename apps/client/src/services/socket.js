@@ -6,6 +6,9 @@ let socket = null
 const connected = ref(false)
 const connecting = ref(false)
 
+// Queue for notification callbacks registered before socket connects
+const pendingNotificationCallbacks = []
+
 /**
  * Initialize socket connection
  */
@@ -35,6 +38,12 @@ export function initSocket() {
         console.log('Socket connected:', socket.id)
         connected.value = true
         connecting.value = false
+
+        // Flush pending notification callbacks
+        pendingNotificationCallbacks.forEach(cb => {
+            socket.on('notification', cb)
+        })
+        pendingNotificationCallbacks.length = 0
     })
 
     socket.on('disconnect', (reason) => {
@@ -196,8 +205,14 @@ export function onAIToggled(callback) {
  * Listen for notifications
  */
 export function onNotification(callback) {
-    if (socket) {
+    if (socket?.connected) {
         socket.on('notification', callback)
+    } else if (socket) {
+        // Socket exists but not connected yet - register directly
+        socket.on('notification', callback)
+    } else {
+        // Socket not initialized - queue for later
+        pendingNotificationCallbacks.push(callback)
     }
 }
 
