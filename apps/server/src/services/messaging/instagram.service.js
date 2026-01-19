@@ -298,6 +298,31 @@ async function processWithAI(channel, instagram, conversation, customer, senderI
             channel.stats.messagesSent = (channel.stats.messagesSent || 0) + 1;
             await channel.save();
 
+            // Update lead score
+            await agent.updateLeadScore(
+                customer._id,
+                result.intent || 'unknown',
+                conversation.stats?.totalMessages || 1,
+                conversation.context?.salesPhase || 'ONBOARDING',
+                result.sentiment || 'neutral'
+            );
+
+            // Emit AI response to frontend via WebSocket
+            try {
+                const { emitNewMessage } = await import('../socket.service.js');
+                emitNewMessage(channel.organization.toString(), conversation._id, aiMessage);
+            } catch (socketError) {
+                logger.warn('Error emitting socket message:', socketError);
+            }
+
+            // Trigger AI summary generation if enough messages
+            try {
+                const { processCustomerForInsights } = await import('../ai/customerInsights.service.js');
+                processCustomerForInsights(customer._id, channel.organization.toString());
+            } catch (insightError) {
+                logger.warn('Error processing customer insights:', insightError);
+            }
+
             logger.info(`AI responded on Instagram to ${customer.name}: ${result.response.substring(0, 50)}...`);
         }
 

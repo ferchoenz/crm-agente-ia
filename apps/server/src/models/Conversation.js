@@ -108,13 +108,19 @@ const conversationSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Product'
         },
-        // SPIN Sales Phase State Machine
+        // SPIN Sales Phase State Machine (with Onboarding)
         salesPhase: {
             type: String,
-            enum: ['SITUATION', 'PROBLEM', 'IMPLICATION', 'NEED_PAYOFF', 'CLOSING', 'COMPLETED'],
-            default: 'SITUATION'
+            enum: ['ONBOARDING', 'SITUATION', 'PROBLEM', 'IMPLICATION', 'NEED_PAYOFF', 'CLOSING', 'COMPLETED'],
+            default: 'ONBOARDING'
         },
-        lastPhaseChangeAt: Date
+        lastPhaseChangeAt: Date,
+        // Track what data has been collected
+        dataCollected: {
+            hasName: { type: Boolean, default: false },
+            hasEmail: { type: Boolean, default: false },
+            hasPhone: { type: Boolean, default: false }
+        }
     },
 
     // Metadata

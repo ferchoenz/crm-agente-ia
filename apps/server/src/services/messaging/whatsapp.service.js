@@ -412,16 +412,29 @@ async function processWithAI(channel, conversation, customer, content) {
         };
         await conversation.save();
 
-        // Update lead score using signal detection
+        // Emit AI response to frontend via WebSocket
         try {
-            const { detectBuyingSignals, updateCustomerLeadScore, processCustomerForInsights } = await import('../ai/customerInsights.service.js');
-            const signals = detectBuyingSignals(content);
-            await updateCustomerLeadScore(customer._id, signals);
+            const { emitNewMessage } = await import('../socket.service.js');
+            emitNewMessage(channel.organization._id.toString(), conversation._id, aiMessage);
+        } catch (socketError) {
+            logger.warn('Error emitting socket message:', socketError);
+        }
 
-            // Trigger AI summary generation if enough messages
+        // Update lead score using agent method (SPIN + intent based)
+        await agent.updateLeadScore(
+            customer._id,
+            aiResponse.intent,
+            conversation.stats.totalMessages,
+            conversation.context?.salesPhase || 'ONBOARDING',
+            aiResponse.sentiment || 'neutral'
+        );
+
+        // Trigger AI summary generation if enough messages
+        try {
+            const { processCustomerForInsights } = await import('../ai/customerInsights.service.js');
             processCustomerForInsights(customer._id, channel.organization._id);
-        } catch (scoreError) {
-            logger.error('Error updating lead score:', scoreError);
+        } catch (insightError) {
+            logger.warn('Error processing customer insights:', insightError);
         }
 
         // Update org usage

@@ -4,8 +4,19 @@ import { getModelRouter } from './model-router.service.js';
 import { searchKnowledge } from '../knowledge.service.js';
 import { logger } from '../../utils/logger.js';
 
-// SPIN Phase Prompts
+// SPIN Phase Prompts (with Onboarding)
 const SPIN_PHASE_PROMPTS = {
+    ONBOARDING: `[👋 FASE: ONBOARDING - Conocer al Cliente]
+Tu objetivo es conocer al cliente de manera natural y cálida.
+1. **Saluda amablemente** y preséntate brevemente.
+2. **Pide su nombre**: "¿Con quién tengo el gusto de hablar?"
+3. **Cuando tengas su nombre**, agradece y pregunta en qué puedes ayudarle.
+4. Si el contexto lo permite, pide su email o teléfono diciendo: "Para darte un mejor seguimiento, ¿me compartes tu correo o número?"
+
+IMPORTANTE:
+- Sé natural, NO hagas las preguntas como robot.
+- Cuando ya tengas nombre y el cliente mencione su necesidad, emite: [PHASE:SITUATION]
+- Si el cliente ya tiene prisa y dice qué necesita, pasa a SITUATION aunque no tengas todos los datos.`,
     SITUATION: `[🎯 FASE SPIN: SITUACIÓN]
 Tu objetivo es entender el CONTEXTO del cliente.
 - Haz preguntas abiertas: "¿Cuéntame sobre tu negocio/situación actual?"
@@ -410,7 +421,7 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
             const phaseMatch = response.content.match(/\[PHASE:(\w+)\]/);
             if (phaseMatch) {
                 const newPhase = phaseMatch[1];
-                if (['SITUATION', 'PROBLEM', 'IMPLICATION', 'NEED_PAYOFF', 'CLOSING', 'COMPLETED'].includes(newPhase)) {
+                if (['ONBOARDING', 'SITUATION', 'PROBLEM', 'IMPLICATION', 'NEED_PAYOFF', 'CLOSING', 'COMPLETED'].includes(newPhase)) {
                     await Conversation.findByIdAndUpdate(conversationId, {
                         $set: {
                             'context.salesPhase': newPhase,
@@ -421,6 +432,11 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
                 }
                 // Remove the phase tag from the response shown to the customer
                 response.content = response.content.replace(/\[PHASE:\w+\]/g, '').trim();
+            }
+
+            // Extract customer data during ONBOARDING phase
+            if (currentPhase === 'ONBOARDING' && customerId) {
+                await this.extractAndSaveCustomerData(customerId, customerMessage);
             }
 
             return {
@@ -436,6 +452,123 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
         } catch (error) {
             logger.error('Error generating AI response:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Extract name, email, phone from customer message and update database
+     */
+    async extractAndSaveCustomerData(customerId, message) {
+        try {
+            const updates = {};
+
+            // Extract email
+            const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            if (emailMatch) {
+                updates.email = emailMatch[0].toLowerCase();
+                logger.info(`Extracted email: ${updates.email}`);
+            }
+
+            // Extract phone (various formats)
+            const phoneMatch = message.match(/(?:\+?52|0)?[\s.-]?(?:\d{2,3}[\s.-]?)?\d{3,4}[\s.-]?\d{4}/);
+            if (phoneMatch) {
+                updates.phone = phoneMatch[0].replace(/[\s.-]/g, '');
+                logger.info(`Extracted phone: ${updates.phone}`);
+            }
+
+            // Extract name (simple heuristic: "me llamo X", "soy X", or just a short message with name)
+            const namePatterns = [
+                /(?:me llamo|soy|mi nombre es)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/i,
+                /^([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)\s*$/
+            ];
+
+            for (const pattern of namePatterns) {
+                const nameMatch = message.match(pattern);
+                if (nameMatch && nameMatch[1] && nameMatch[1].length > 2 && nameMatch[1].length < 50) {
+                    updates.name = nameMatch[1].trim();
+                    logger.info(`Extracted name: ${updates.name}`);
+                    break;
+                }
+            }
+
+            // Update customer if we found any data
+            if (Object.keys(updates).length > 0) {
+                await Customer.findByIdAndUpdate(customerId, { $set: updates });
+                logger.info(`Updated customer ${customerId} with:`, updates);
+            }
+        } catch (error) {
+            logger.error('Error extracting customer data:', error);
+        }
+    }
+
+    /**
+     * Update lead score based on conversation signals
+     * @param {string} customerId - Customer ID
+     * @param {string} intent - Detected intent from message
+     * @param {number} totalMessages - Total messages in conversation
+     * @param {string} salesPhase - Current SPIN phase
+     * @param {string} sentiment - Detected sentiment
+     */
+    async updateLeadScore(customerId, intent, totalMessages, salesPhase = 'ONBOARDING', sentiment = 'neutral') {
+        try {
+            const customer = await Customer.findById(customerId);
+            if (!customer) {
+                logger.warn(`Customer ${customerId} not found for lead scoring`);
+                return null;
+            }
+
+            let scoreChange = 0;
+
+            // Intent-based scoring
+            const intentScores = {
+                'purchase': 25,         // Ready to buy
+                'pricing': 15,          // Interested in prices
+                'product_info': 10,     // Researching
+                'greeting': 2,          // Initial contact
+                'support': 5,           // Engaged (needs help)
+                'human_handoff': -5,    // Might be frustrated
+                'objection': -3,        // Has concerns
+                'unknown': 1            // Default small bump
+            };
+            scoreChange += intentScores[intent] || 1;
+
+            // Message engagement scoring
+            if (totalMessages >= 3) scoreChange += 5;
+            if (totalMessages >= 5) scoreChange += 5;
+            if (totalMessages >= 10) scoreChange += 10;
+
+            // Sales phase scoring (deeper = more interested)
+            const phaseScores = {
+                'ONBOARDING': 0,
+                'SITUATION': 5,
+                'PROBLEM': 10,
+                'IMPLICATION': 15,
+                'NEED_PAYOFF': 20,
+                'CLOSING': 25,
+                'COMPLETED': 30
+            };
+            scoreChange += phaseScores[salesPhase] || 0;
+
+            // Sentiment adjustments
+            if (sentiment === 'positive') scoreChange += 5;
+            if (sentiment === 'negative') scoreChange -= 10;
+            if (sentiment === 'urgent') scoreChange += 3; // Urgency might mean ready to buy
+
+            // Calculate new score
+            const currentScore = customer.leadScore || 0;
+            const newScore = Math.min(100, Math.max(0, currentScore + scoreChange));
+
+            // Only update if score changed
+            if (newScore !== currentScore) {
+                customer.leadScore = newScore;
+                await customer.save();
+                logger.info(`Lead score updated for ${customerId}: ${currentScore} → ${newScore} (${scoreChange > 0 ? '+' : ''}${scoreChange})`);
+            }
+
+            return newScore;
+        } catch (error) {
+            logger.error('Error updating lead score:', error);
+            return null;
         }
     }
 }

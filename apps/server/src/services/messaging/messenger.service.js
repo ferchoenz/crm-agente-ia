@@ -589,12 +589,22 @@ async function processWithAI(channel, messenger, conversation, customer, senderI
         // Emit AI response to frontend via WebSocket
         emitNewMessage(channel.organization._id, conversation._id, aiMessage);
 
-        // Update lead score
+        // Update lead score with all factors
         await agent.updateLeadScore(
             customer._id,
             aiResponse.intent,
-            conversation.stats.totalMessages
+            conversation.stats.totalMessages,
+            conversation.context?.salesPhase || 'ONBOARDING',
+            aiResponse.sentiment || 'neutral'
         );
+
+        // Trigger AI summary generation if enough messages
+        try {
+            const { processCustomerForInsights } = await import('../ai/customerInsights.service.js');
+            processCustomerForInsights(customer._id, channel.organization._id);
+        } catch (insightError) {
+            logger.warn('Error processing customer insights:', insightError);
+        }
 
         // Update org usage
         const org = await Organization.findById(channel.organization._id);
