@@ -107,7 +107,14 @@ const conversationSchema = new mongoose.Schema({
         lastProductMentioned: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Product'
-        }
+        },
+        // SPIN Sales Phase State Machine
+        salesPhase: {
+            type: String,
+            enum: ['SITUATION', 'PROBLEM', 'IMPLICATION', 'NEED_PAYOFF', 'CLOSING', 'COMPLETED'],
+            default: 'SITUATION'
+        },
+        lastPhaseChangeAt: Date
     },
 
     // Metadata

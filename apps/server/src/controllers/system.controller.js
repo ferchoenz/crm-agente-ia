@@ -196,9 +196,9 @@ export const getSystemHealth = asyncHandler(async (req, res) => {
                 name: routerStatus.L1?.name || 'Groq (Llama 3.1)',
                 configured: !!process.env.GROQ_API_KEY
             },
-            L2_Qwen: {
+            L2_Gemini: {
                 status: routerStatus.L2?.available ? 'healthy' : 'unavailable',
-                name: routerStatus.L2?.name || 'Qwen 2.5 32B',
+                name: routerStatus.L2?.name || 'Gemini 2.0 Flash',
                 configured: !!process.env.OPENROUTER_API_KEY
             },
             L3_DeepSeek: {

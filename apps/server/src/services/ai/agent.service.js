@@ -4,6 +4,44 @@ import { getModelRouter } from './model-router.service.js';
 import { searchKnowledge } from '../knowledge.service.js';
 import { logger } from '../../utils/logger.js';
 
+// SPIN Phase Prompts
+const SPIN_PHASE_PROMPTS = {
+    SITUATION: `[🎯 FASE SPIN: SITUACIÓN]
+Tu objetivo es entender el CONTEXTO del cliente.
+- Haz preguntas abiertas: "¿Cuéntame sobre tu negocio/situación actual?"
+- NO vendas todavía, solo escucha y recopila información.
+- Cuando entiendas su contexto, emite: [PHASE:PROBLEM]`,
+    PROBLEM: `[🔍 FASE SPIN: PROBLEMA]
+Ya conoces su contexto. Ahora indaga sobre DIFICULTADES.
+- Pregunta: "¿Qué desafíos enfrentas actualmente con...?"
+- Descubre puntos de dolor sin ofrecer solución aún.
+- Cuando identifiques un problema claro, emite: [PHASE:IMPLICATION]`,
+    IMPLICATION: `[⚠️ FASE SPIN: IMPLICACIÓN]
+Haz que el cliente sienta el PESO del problema.
+- Pregunta: "¿Qué pasa si esto no se resuelve?", "¿Cuánto te cuesta este problema?"
+- Amplifica la urgencia sin ser agresivo.
+- Cuando el cliente exprese preocupación, emite: [PHASE:NEED_PAYOFF]`,
+    NEED_PAYOFF: `[✅ FASE SPIN: NECESIDAD-BENEFICIO]
+Haz que el cliente VERBALICE los beneficios de resolver el problema.
+- Pregunta: "¿Cómo cambiaría tu situación si resolvieras esto?"
+- Deja que él diga por qué necesita la solución.
+- Cuando esté listo para comprar, emite: [PHASE:CLOSING]`,
+    CLOSING: `[🎯 FASE SPIN: CIERRE]
+El cliente está listo. CIERRA LA VENTA.
+- Presenta tu solución conectada a sus necesidades específicas.
+- Usa call-to-action directo: "¿Te envío el enlace de pago?"
+- Cuando confirme compra, emite: [PHASE:COMPLETED]`,
+    COMPLETED: `[🏆 VENTA COMPLETADA] Agradece y ofrece soporte post-venta.`
+};
+
+// LAER Objection Framework
+const LAER_PROMPT = `[⚡ OBJECIÓN DETECTADA - Usa Marco LAER]
+1. LISTEN (Escucha): Deja que termine de expresarse.
+2. ACKNOWLEDGE (Reconoce): "Entiendo tu punto sobre..." (valida sin rendirte).
+3. EXPLORE (Explora): "¿Podrías contarme más sobre...?" (descubre la objeción real).
+4. RESPOND (Responde): Solo después de explorar, da tu respuesta enfocada en valor.
+NUNCA: Des descuento inmediato. SIEMPRE: Explora primero.`;
+
 /**
  * AI Agent Service
  * Handles conversation with customers using multi-model routing
@@ -87,6 +125,11 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
 - Revisa historial - NO repitas información
 - Si ya mencionaste algo: "Como te comenté..."
 - Conecta con lo que ya sabe el cliente
+
+# 🏢 INFORMACIÓN DEL NEGOCIO (Prioridad Alta)
+- Si hay información en [INFORMACIÓN DEL NEGOCIO], ÚSALA para responder.
+- Si una política de la empresa contradice tu entrenamiento general, obedece la política de la empresa.
+- Si el cliente pregunta algo específico que está en el contexto (envíos, garantías), responde con esa información exacta.
 
 # ❌ LÍMITES (NUNCA hacer)
 - Inventar productos/servicios no listados
@@ -219,11 +262,41 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
             const systemMessage = new SystemMessage(this.buildSystemPrompt());
             const history = await this.getConversationHistory(conversationId);
 
-            // Detect intent
+            // Detect intent (Legacy regex + Vector fallback if needed)
             const intent = this.detectIntent(customerMessage);
+
+            // DETECT SENTIMENT (Vector)
+            const { vectorRouter } = await import('../../utils/vector-router.util.js');
+            const sentimentMatch = await vectorRouter.classify(customerMessage, 'sentiment');
+            const sentiment = sentimentMatch.name;
 
             // Build context message
             let contextMessage = '';
+
+            // Inject Sentiment Adjustments
+            if (sentiment === 'negative') {
+                contextMessage += `\n[⚠️ DETECCIÓN DE SENTIMIENTO: El cliente parece MOLESTO/FRUSTRADO. Tono obligatorio: Empático, ofrece disculpas cortas, no uses emojis felices, ve directo a la solución.]\n`;
+            } else if (sentiment === 'urgent') {
+                contextMessage += `\n[⚠️ DETECCIÓN DE SENTIMIENTO: El cliente tiene URGENCIA. Tono obligatorio: Directo, rápido, evita saludos largos, da la solución inmediata.]\n`;
+            } else if (sentiment === 'positive') {
+                contextMessage += `\n[✨ DETECCIÓN DE SENTIMIENTO: El cliente está FELIZ. Tono: Entusiasta, agradece la confianza, usa emojis positivos.]\n`;
+            }
+
+            // Get conversation for SPIN phase (or default to SITUATION)
+            const conversation = await Conversation.findById(conversationId).select('context').lean();
+            const currentPhase = conversation?.context?.salesPhase || 'SITUATION';
+
+            // Inject SPIN Phase Guidance
+            if (SPIN_PHASE_PROMPTS[currentPhase]) {
+                contextMessage += `\n${SPIN_PHASE_PROMPTS[currentPhase]}\n`;
+            }
+
+            // Inject LAER Framework for Objections (via semantic classification)
+            const intentMatch = await vectorRouter.classify(customerMessage, 'intent');
+            if (intentMatch.name === 'objection' && intentMatch.score > 0.6) {
+                contextMessage += `\n${LAER_PROMPT}\n`;
+            }
+
             let products = [];
 
             // PRODUCTS/SERVICES: Only add if intent is product-related
@@ -270,15 +343,14 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
                 }
             }
 
-            // KNOWLEDGE BASE: Only if NOT a product query (limit to 2 chunks, max 200 chars each)
-            if (intent !== 'inquiry' && intent !== 'purchase' && intent !== 'product_list') {
-                const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 2);
-                if (knowledgeChunks.length > 0) {
-                    const knowledgeContext = knowledgeChunks.map(chunk =>
-                        `${chunk.content.slice(0, 200)}...`
-                    ).join('\n');
-                    contextMessage += `\n\n[CONTEXTO EMPRESA:\n${knowledgeContext}\n]`;
-                }
+            // KNOWLEDGE BASE (RAG): Search for relevant company info/policies for ALL intents
+            // This ensures policies like "No discounts" or "Free shipping > $500" are always applied
+            const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 3);
+            if (knowledgeChunks.length > 0) {
+                const knowledgeContext = knowledgeChunks.map(chunk =>
+                    `- ${chunk.content.slice(0, 300)}`
+                ).join('\n');
+                contextMessage += `\n\n[INFORMACIÓN DEL NEGOCIO (Usar para responder):\n${knowledgeContext}\n]`;
             }
 
             // Handle human handoff
@@ -318,13 +390,31 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
 
             const processingTime = Date.now() - startTime;
 
+            // Detect Phase Transition from AI Response
+            const phaseMatch = response.content.match(/\[PHASE:(\w+)\]/);
+            if (phaseMatch) {
+                const newPhase = phaseMatch[1];
+                if (['SITUATION', 'PROBLEM', 'IMPLICATION', 'NEED_PAYOFF', 'CLOSING', 'COMPLETED'].includes(newPhase)) {
+                    await Conversation.findByIdAndUpdate(conversationId, {
+                        $set: {
+                            'context.salesPhase': newPhase,
+                            'context.lastPhaseChangeAt': new Date()
+                        }
+                    });
+                    logger.info(`SPIN Phase transitioned to ${newPhase} for conversation ${conversationId}`);
+                }
+                // Remove the phase tag from the response shown to the customer
+                response.content = response.content.replace(/\[PHASE:\w+\]/g, '').trim();
+            }
+
             return {
                 content: response.content,
                 intent,
                 model: response.model,
                 provider: response.provider,
                 shouldHandoff: false,
-                processingTime
+                processingTime,
+                salesPhase: phaseMatch ? phaseMatch[1] : currentPhase
             };
 
         } catch (error) {

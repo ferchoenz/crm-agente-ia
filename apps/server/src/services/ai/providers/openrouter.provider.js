@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger.js';
 
 /**
  * OpenRouter Provider - Access to multiple models via OpenRouter
- * Used for L2 (Qwen) and L3 (DeepSeek) queries
+ * Used for L2 (Gemini) and L3 (DeepSeek) queries
  */
 export class OpenRouterProvider {
     constructor(apiKey, model, providerName = 'openrouter') {
@@ -102,14 +102,14 @@ export function createOpenRouterProvider() {
 }
 
 /**
- * Factory function for L2 (Qwen 2.5 32B)
+ * Factory function for L2 (Gemini 2.0 Flash 001)
  */
-export function createQwenProvider() {
+export function createGeminiProvider() {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
         logger.warn('OPENROUTER_API_KEY not configured');
         return null;
     }
-    const model = process.env.AI_L2_MODEL || 'qwen/qwen-2.5-32b-instruct';
-    return new OpenRouterProvider(apiKey, model, 'qwen');
+    const model = process.env.AI_L2_MODEL || 'google/gemini-2.0-flash-001';
+    return new OpenRouterProvider(apiKey, model, 'gemini');
 }

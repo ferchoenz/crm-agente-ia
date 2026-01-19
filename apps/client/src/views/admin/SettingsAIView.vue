@@ -215,7 +215,7 @@
               :class="settings.preferredLevel === 'L2' ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300'"
             >
               <div class="text-amber-600 font-bold text-sm mb-1">L2 - Contextual</div>
-              <div class="text-xs text-slate-600">Qwen 2.5 32B</div>
+              <div class="text-xs text-slate-600">Gemini 2.0 Flash</div>
               <div class="text-xs text-slate-400 mt-1">Balance ideal de calidad y costo</div>
             </button>
             
@@ -321,7 +321,7 @@ const saving = ref(false)
 
 const aiProviders = ref({
   L1: { available: false, name: 'Groq (Llama 3.1)' },
-  L2: { available: false, name: 'Qwen 2.5 32B' },
+  L2: { available: false, name: 'Gemini 2.0 Flash' },
   L3: { available: false, name: 'DeepSeek V3' }
 })
 

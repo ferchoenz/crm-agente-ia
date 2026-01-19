@@ -258,7 +258,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import LoadingScreen from '@/components/ui/LoadingScreen.vue'
 import api from '@/services/api'
-import { initSocket, onNewMessage, offEvent } from '@/services/socket'
+import { initSocket, onNewMessage, offEvent, onNotification } from '@/services/socket'
 import {
   Zap as ZapIcon,
   LayoutDashboard as DashboardIcon,
@@ -464,8 +464,24 @@ onMounted(async () => {
   
   // Initialize socket for real-time updates
   initSocket()
+  
   onNewMessage(() => {
     unreadCount.value++
+  })
+
+  // Listen for notifications
+  onNotification((notification) => {
+    // Add to list if not exists
+    if (!notifications.value.find(n => n._id === notification._id)) {
+      notifications.value.unshift(notification)
+      notificationUnreadCount.value++
+      
+      // Play sound for high priority notifications
+      if (notification.priority === 'high' || notification.type === 'handoff_request') {
+        const audio = new Audio('/notification.mp3') // Ensure this file exists in public/
+        audio.play().catch(e => console.log('Audio play failed', e))
+      }
+    }
   })
   
   // Simulate initial load

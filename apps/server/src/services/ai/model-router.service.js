@@ -1,6 +1,6 @@
 import { logger } from '../../utils/logger.js';
 import { createGroqProvider } from './providers/groq.provider.js';
-import { createOpenRouterProvider, createQwenProvider } from './providers/openrouter.provider.js';
+import { createOpenRouterProvider, createGeminiProvider } from './providers/openrouter.provider.js';
 import { AIUsage } from '../../models/AIUsage.js';
 
 /**
@@ -11,7 +11,7 @@ export class ModelRouterService {
     constructor() {
         this.providers = {
             L1: null, // Groq - Fast, simple queries
-            L2: null, // Gemini - Contextual, long context
+            L2: null, // Gemini 2.0 Flash - Contextual, long context
             L3: null  // DeepSeek - Complex reasoning
         };
 
@@ -29,10 +29,10 @@ export class ModelRouterService {
                 logger.info('✓ Groq provider initialized (L1)');
             }
 
-            // L2: Qwen for contextual queries (via OpenRouter)
-            this.providers.L2 = createQwenProvider();
+            // L2: Gemini 2.0 Flash for contextual queries (via OpenRouter)
+            this.providers.L2 = createGeminiProvider();
             if (this.providers.L2) {
-                logger.info('✓ Qwen provider initialized (L2)');
+                logger.info('✓ Gemini 2.0 Flash provider initialized (L2)');
             }
 
             // L3: DeepSeek for complex reasoning
@@ -58,54 +58,40 @@ export class ModelRouterService {
     }
 
     /**
-     * Classify message complexity
-     * L1: Simple greetings, confirmations, basic info
-     * L2: Questions requiring context, history lookup, product search
-     * L3: Negotiations, objections, complex decisions
+     * Classify message complexity using Semantic Router
+     * L1: Simple greetings, confirmations
+     * L2: General inquiries, product search
+     * L3: Objections, complex decisions, support
      */
-    classifyComplexity(message, context = {}) {
-        const lowerMessage = message.toLowerCase();
+    async classifyComplexity(message, context = {}) {
+        try {
+            // Lazy load vector router
+            const { vectorRouter } = await import('../../utils/vector-router.util.js');
 
-        // L1 patterns - Simple queries
-        const l1Patterns = [
-            /^(hola|hi|hello|buenos?\s*(días?|tardes?|noches?)|hey)/i,
-            /^(gracias|ok|okey|vale|sí|no|claro|perfecto|genial|bien|está bien)$/i,
-            /^(adiós|chao|bye|hasta luego|nos vemos)/i,
-            /^\d+$/,  // Just numbers
-            /^.{1,20}$/  // Very short messages
-        ];
+            // Get semantic classification (Intents only)
+            const match = await vectorRouter.classify(message, 'intent');
+            logger.info(`Semantic classification for "${message.slice(0, 30)}...": ${match.name} (${match.score.toFixed(2)})`);
 
-        // L3 patterns - Complex queries
-        const l3Patterns = [
-            /(descuento|rebaja|precio\s*especial|negociar|regatear)/i,
-            /(no\s*(me\s*)?convence|muy\s*caro|demasiado|mejor\s*precio)/i,
-            /(mayoreo|mayorista|al\s*por\s*mayor|volumen|cantidad)/i,
-            /(problema|queja|reclamo|devolver|reembolso|garantía)/i,
-            /(contrato|legal|términos|condiciones)/i,
-            /(comparar|competencia|otra\s*empresa|alternativa)/i
-        ];
-
-        // Check L1 first (simple)
-        if (l1Patterns.some(pattern => pattern.test(lowerMessage))) {
-            return 'L1';
+            // Map intent to complexity level
+            switch (match.name) {
+                case 'objection':
+                    return 'L3'; // Needs reasoning (DeepSeek)
+                case 'purchase':
+                    return 'L2'; // Needs context/speed (Gemini)
+                case 'support':
+                    return 'L3'; // Needs problem solving (DeepSeek + Knowledge)
+                case 'greeting':
+                    return 'L1'; // Simple (Groq)
+                default:
+                    // Fallback to context-based or L1
+                    if (context.historyLength > 10 || context.hasProducts) return 'L2';
+                    return 'L1';
+            }
+        } catch (error) {
+            logger.warn('Semantic classification failed, falling back to basic rules:', error);
+            // Fallback to basic length heuristic
+            return message.length > 50 ? 'L2' : 'L1';
         }
-
-        // Check L3 (complex)
-        if (l3Patterns.some(pattern => pattern.test(lowerMessage))) {
-            return 'L3';
-        }
-
-        // Context-based classification
-        if (context.historyLength > 10) {
-            return 'L2'; // Long conversation history needs Gemini
-        }
-
-        if (context.hasProducts || context.requiresSearch) {
-            return 'L2'; // Product queries need context
-        }
-
-        // Default to L1 for most queries (cost optimization)
-        return 'L1';
     }
 
     /**
@@ -146,7 +132,7 @@ export class ModelRouterService {
         const startTime = Date.now();
 
         // Classify complexity
-        const requestedLevel = options.forceLevel || this.classifyComplexity(
+        const requestedLevel = options.forceLevel || await this.classifyComplexity(
             message || messages[messages.length - 1]?.content || '',
             context || {}
         );
@@ -228,7 +214,7 @@ export class ModelRouterService {
     getProviderName(level) {
         const names = {
             L1: 'groq',
-            L2: 'qwen',
+            L2: 'gemini',
             L3: 'deepseek'
         };
         return names[level] || 'unknown';
@@ -240,7 +226,7 @@ export class ModelRouterService {
     getStatus() {
         return {
             L1: { available: !!this.providers.L1, name: 'Groq (Llama 3.1 8B)' },
-            L2: { available: !!this.providers.L2, name: 'Qwen 2.5 32B (OpenRouter)' },
+            L2: { available: !!this.providers.L2, name: 'Gemini 2.0 Flash (OpenRouter)' },
             L3: { available: !!this.providers.L3, name: 'DeepSeek V3 (OpenRouter)' }
         };
     }

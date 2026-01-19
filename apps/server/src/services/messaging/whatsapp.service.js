@@ -358,7 +358,7 @@ async function processWithAI(channel, conversation, customer, content) {
 
             // Create notification for team
             try {
-                await Notification.create({
+                const notification = await Notification.create({
                     organization: channel.organization._id,
                     type: 'handoff_request',
                     title: '🙋 Solicitud de Atención Humana',
@@ -367,6 +367,15 @@ async function processWithAI(channel, conversation, customer, content) {
                     relatedCustomer: customer._id,
                     priority: 'high'
                 });
+
+                // Emit notification via socket
+                try {
+                    const { emitToOrganization } = await import('../socket.service.js');
+                    emitToOrganization(channel.organization._id.toString(), 'notification', notification);
+                } catch (socketError) {
+                    logger.error('Failed to emit socket notification:', socketError);
+                }
+
                 logger.info(`Handoff notification created for conversation ${conversation._id}`);
             } catch (notifError) {
                 logger.error('Failed to create handoff notification:', notifError);

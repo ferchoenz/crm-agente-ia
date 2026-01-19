@@ -82,7 +82,7 @@ router.get('/ai/status', requireAdmin, async (req, res) => {
             error: 'Error getting AI status',
             providers: {
                 L1: { available: false, name: 'Groq (Llama 3.1)' },
-                L2: { available: false, name: 'Qwen 2.5 32B' },
+                L2: { available: false, name: 'Gemini 2.0 Flash' },
                 L3: { available: false, name: 'DeepSeek V3' }
             }
         });
