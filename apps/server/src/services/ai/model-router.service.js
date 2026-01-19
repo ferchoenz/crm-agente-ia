@@ -76,21 +76,25 @@ export class ModelRouterService {
             switch (match.name) {
                 case 'objection':
                     return 'L3'; // Needs reasoning (DeepSeek)
-                case 'purchase':
-                    return 'L2'; // Needs context/speed (Gemini)
                 case 'support':
                     return 'L3'; // Needs problem solving (DeepSeek + Knowledge)
+                case 'purchase':
+                    return 'L2'; // Needs context/speed (Gemini)
+                case 'inquiry':
+                    return 'L2'; // General questions need context (Gemini)
+                case 'conversation':
+                    return 'L2'; // Ongoing dialog needs context (Gemini)
                 case 'greeting':
                     return 'L1'; // Simple (Groq)
                 default:
-                    // Fallback to context-based or L1
-                    if (context.historyLength > 10 || context.hasProducts) return 'L2';
-                    return 'L1';
+                    // Fallback to L2 for unknown intents (safer than L1)
+                    logger.info(`Unknown intent, defaulting to L2`);
+                    return 'L2';
             }
         } catch (error) {
-            logger.warn('Semantic classification failed, falling back to basic rules:', error);
-            // Fallback to basic length heuristic
-            return message.length > 50 ? 'L2' : 'L1';
+            logger.warn('Semantic classification failed, falling back to L2:', error);
+            // Fallback to L2 (safer middle ground)
+            return 'L2';
         }
     }
 

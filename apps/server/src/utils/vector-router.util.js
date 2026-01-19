@@ -64,21 +64,21 @@ export class VectorRouter {
     async initializeRoutes() {
         if (this.initialized) return;
 
-        // Route: Objection (Needs DeepSeek)
+        // Route: Objection (Needs DeepSeek - L3)
         await this.addRoute('objection', [
             "es muy caro", "el precio es alto", "lo voy a pensar",
             "necesito consultarlo", "no estoy seguro", "la competencia es mas barata",
             "no tengo presupuesto", "es mucho dinero"
         ]);
 
-        // Route: Closing / Purchase (Needs Speed/Action)
+        // Route: Closing / Purchase (Needs Speed/Action - L2)
         await this.addRoute('purchase', [
             "quiero comprar", "donde pago", "mándame el link",
             "me interesa", "lo quiero", "como procedemos",
             "acepto la oferta", "facturan?"
         ]);
 
-        // Route: Support (Needs Knowledge Base)
+        // Route: Support (Needs Knowledge Base - L3)
         await this.addRoute('support', [
             "no funciona", "tengo un problema", "error",
             "ayuda con mi cuenta", "no me llego el correo",
@@ -87,8 +87,24 @@ export class VectorRouter {
 
         // Route: Info/Greeting (Needs Speed - L1)
         await this.addRoute('greeting', [
-            "hola", "buenos dias", "que tal", "info",
-            "que horarios tienen", "donde estan ubicados"
+            "hola", "buenos dias", "que tal",
+            "donde estan ubicados", "buenas tardes"
+        ]);
+
+        // Route: Inquiry (General questions - L2)
+        await this.addRoute('inquiry', [
+            "cuanto cuesta", "que precio tiene", "información sobre",
+            "me puedes explicar", "cuales son", "que servicios ofrecen",
+            "que productos tienen", "catalogo", "opciones disponibles",
+            "como funciona", "que incluye", "detalles"
+        ]);
+
+        // Route: Conversation (Ongoing dialog - L2)
+        await this.addRoute('conversation', [
+            "si", "no", "ok", "esta bien", "de acuerdo",
+            "perfecto", "entiendo", "claro", "eso es todo",
+            "gracias", "muchas gracias", "te cuento",
+            "pues mira", "la verdad", "es que"
         ]);
 
         this.initialized = true;
