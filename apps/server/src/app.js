@@ -27,6 +27,8 @@ const io = initializeSocket(httpServer);
 app.set('io', io);
 
 // Middleware
+// Trust first proxy (nginx/load balancer) - required for express-rate-limit behind reverse proxy
+app.set('trust proxy', 1);
 app.use(helmet());
 
 // CORS configuration
