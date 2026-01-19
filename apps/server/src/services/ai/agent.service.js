@@ -234,14 +234,27 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
     detectIntent(message) {
         const lowerMessage = message.toLowerCase();
 
+        // PRIORITY: Check handoff FIRST (human request takes precedence)
+        const handoffKeywords = [
+            'humano', 'persona', 'agente', 'asesor', 'operador',
+            'hablar con alguien', 'persona real', 'representante',
+            'alguien más', 'otro agente', 'supervisor',
+            'no me entiendes', 'no entiendes', 'no me estás entendiendo',
+            'quiero hablar', 'necesito hablar', 'quiero un humano',
+            'pásame con', 'transfiéreme', 'escalame'
+        ];
+
+        if (handoffKeywords.some(keyword => lowerMessage.includes(keyword))) {
+            return 'human_handoff';
+        }
+
         const intents = {
             greeting: ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hi', 'hello', 'qué tal'],
             product_list: ['qué tienen', 'qué venden', 'productos', 'catálogo', 'qué ofrecen', 'servicios'],
             inquiry: ['precio', 'costo', 'cuánto', 'disponible', 'información', 'características'],
             purchase: ['comprar', 'quiero', 'me interesa', 'ordenar', 'pedir'],
             appointment: ['cita', 'agendar', 'reservar', 'horario', 'disponibilidad'],
-            complaint: ['problema', 'queja', 'malo', 'reclamo', 'devolver'],
-            human_handoff: ['humano', 'persona', 'agente', 'asesor', 'hablar con alguien', 'operador']
+            complaint: ['problema', 'queja', 'malo', 'reclamo', 'devolver']
         };
 
         for (const [intent, keywords] of Object.entries(intents)) {

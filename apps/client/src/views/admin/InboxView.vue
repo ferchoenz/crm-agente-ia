@@ -294,11 +294,10 @@ async function loadMessages(conversationId) {
     const response = await api.get(`/admin/conversations/${conversationId}`)
     messages.value = response.data.messages
     
-    // Scroll to bottom
+    // Scroll to bottom with delay to ensure DOM is ready
     await nextTick()
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-    }
+    scrollToBottom()
+    setTimeout(scrollToBottom, 150) // Fallback for images/slow renders
   } catch (error) {
     console.error('Error loading messages:', error)
   } finally {
@@ -349,20 +348,41 @@ async function toggleAI() {
 }
 
 function handleNewMessage(data) {
+  // Add message to current chat if selected
   if (selectedConv.value?._id === data.conversationId) {
     messages.value.push(data.message)
     
+    // Scroll to bottom with multiple attempts for reliability
     nextTick(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
+      scrollToBottom()
+      // Fallback scroll after render
+      setTimeout(scrollToBottom, 100)
     })
   }
 
-  // Update conversation in list
-  const conv = conversations.value.find(c => c._id === data.conversationId)
-  if (conv) {
-    conv.lastMessage = data.message
+  // Update or add conversation in list
+  const existingConv = conversations.value.find(c => c._id === data.conversationId)
+  if (existingConv) {
+    existingConv.lastMessage = data.message
+    existingConv.lastMessageAt = data.message.sentAt
+    if (data.message.senderType === 'customer') {
+      existingConv.unreadCount = (existingConv.unreadCount || 0) + 1
+    }
+    // Move to top of list
+    const index = conversations.value.indexOf(existingConv)
+    if (index > 0) {
+      conversations.value.splice(index, 1)
+      conversations.value.unshift(existingConv)
+    }
+  } else {
+    // NEW CONVERSATION - reload list to get full data
+    loadConversations()
+  }
+}
+
+function scrollToBottom() {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 }
 
