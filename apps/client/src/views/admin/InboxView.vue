@@ -1,7 +1,10 @@
 <template>
-  <div class="h-[calc(100vh-140px)] flex gap-4">
-    <!-- Lista de Conversaciones -->
-    <div class="w-96 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm">
+  <div class="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-0 md:gap-4">
+    <!-- Lista de Conversaciones - Full width on mobile, hidden when chat is open -->
+    <div 
+      class="flex-1 md:flex-none md:w-96 flex flex-col bg-white rounded-none md:rounded-2xl border-0 md:border border-slate-200 shadow-sm"
+      :class="{ 'hidden md:flex': showMobileChat }"
+    >
       <!-- Header -->
       <div class="p-4 border-b border-slate-200">
         <h2 class="text-lg font-semibold text-slate-800">Conversaciones</h2>
@@ -97,11 +100,21 @@
       </div>
     </div>
 
-    <!-- Chat Area -->
-    <div class="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm">
+    <!-- Chat Area - Full width on mobile, hidden when list is shown -->
+    <div 
+      class="flex-1 flex flex-col bg-white rounded-none md:rounded-2xl border-0 md:border border-slate-200 shadow-sm"
+      :class="{ 'hidden md:flex': !showMobileChat && !selectedConv }"
+    >
       <!-- Chat Header -->
       <div v-if="selectedConv" class="p-4 border-b border-slate-200 flex items-center justify-between">
         <div class="flex items-center gap-3">
+          <!-- Back button (mobile only) -->
+          <button 
+            @click="goBackToList"
+            class="p-2 -ml-2 hover:bg-slate-100 rounded-lg md:hidden"
+          >
+            <ArrowLeftIcon class="w-5 h-5 text-slate-600" />
+          </button>
           <div class="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-600 font-semibold">
             {{ selectedConv.customer?.name?.[0]?.toUpperCase() || '?' }}
           </div>
@@ -211,7 +224,8 @@ import {
   Send as SendIcon,
   MessageCircle as WhatsAppIcon,
   Send as MessengerIcon,
-  Instagram as InstagramIcon
+  Instagram as InstagramIcon,
+  ArrowLeft as ArrowLeftIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -226,6 +240,7 @@ const selectedConv = ref(null)
 const newMessage = ref('')
 const currentFilter = ref('all')
 const messagesContainer = ref(null)
+const showMobileChat = ref(false) // Controls mobile view: false = list, true = chat
 
 const filters = [
   { label: 'Todas', value: 'all' },
@@ -280,12 +295,19 @@ async function loadConversations() {
 
 async function selectConversation(conv) {
   selectedConv.value = conv
+  showMobileChat.value = true // Show chat panel on mobile
   router.push(`/inbox/${conv._id}`)
   
   await loadMessages(conv._id)
   
   // Join conversation room using socket service
   socket.joinConversation(conv._id)
+}
+
+function goBackToList() {
+  showMobileChat.value = false
+  selectedConv.value = null
+  router.push('/inbox')
 }
 
 async function loadMessages(conversationId) {
@@ -387,9 +409,22 @@ function scrollToBottom() {
 }
 
 function handleConversationUpdate(data) {
-  const conv = conversations.value.find(c => c._id === data.conversationId)
-  if (conv && data.lastMessage) {
-    conv.lastMessage = data.lastMessage
+  const existingConv = conversations.value.find(c => c._id === data.conversationId)
+  if (existingConv) {
+    if (data.lastMessage) {
+      existingConv.lastMessage = data.lastMessage
+      existingConv.lastMessageAt = data.lastMessage.sentAt || new Date()
+    }
+    // Move updated conversation to top
+    const index = conversations.value.indexOf(existingConv)
+    if (index > 0) {
+      conversations.value.splice(index, 1)
+      conversations.value.unshift(existingConv)
+    }
+  } else {
+    // NEW CONVERSATION - reload the entire list
+    console.log('New conversation detected, reloading list...')
+    loadConversations()
   }
 }
 

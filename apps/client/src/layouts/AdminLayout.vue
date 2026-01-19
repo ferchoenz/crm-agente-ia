@@ -8,10 +8,23 @@
     />
     
     <div v-else class="flex min-h-screen">
+      <!-- Mobile Backdrop -->
+      <Transition name="fade">
+        <div 
+          v-if="mobileMenuOpen" 
+          class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          @click="mobileMenuOpen = false"
+        ></div>
+      </Transition>
+
       <!-- Sidebar -->
       <aside 
-        class="fixed left-0 top-0 h-full z-40 flex flex-col bg-white border-r border-slate-200 shadow-sm transition-all duration-300 ease-out"
-        :class="sidebarWidth"
+        class="fixed left-0 top-0 h-full z-50 flex flex-col bg-white border-r border-slate-200 shadow-sm transition-all duration-300 ease-out"
+        :class="[
+          sidebarWidth,
+          // Mobile: hidden by default, show when mobileMenuOpen
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        ]"
         @mouseenter="handleMouseEnter"
         @mouseleave="handleMouseLeave"
       >
@@ -47,6 +60,7 @@
             v-for="item in navigation"
             :key="item.to"
             :to="item.to"
+            @click="mobileMenuOpen = false"
             class="sidebar-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
             :class="{ '!bg-primary-50 !text-primary-600 font-medium': isActive(item.to) }"
           >
@@ -80,6 +94,7 @@
             v-for="item in settingsNav"
             :key="item.to"
             :to="item.to"
+            @click="mobileMenuOpen = false"
             class="sidebar-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
             :class="{ '!bg-primary-50 !text-primary-600 font-medium': isActive(item.to) }"
           >
@@ -130,11 +145,11 @@
       
       <!-- Main Content -->
       <main 
-        class="flex-1 transition-all duration-300 ease-out"
+        class="flex-1 transition-all duration-300 ease-out min-w-0"
         :class="contentMargin"
       >
         <!-- Top bar -->
-        <header class="sticky top-0 z-30 h-16 bg-white/80 backdrop-blur-sm border-b border-slate-200 flex items-center justify-between px-6 shadow-sm">
+        <header class="sticky top-0 z-30 h-16 bg-white/80 backdrop-blur-sm border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm">
           <div class="flex items-center gap-4">
             <!-- Mobile menu button -->
             <button 
@@ -259,6 +274,8 @@ import { useAuthStore } from '@/stores/auth.store'
 import LoadingScreen from '@/components/ui/LoadingScreen.vue'
 import api from '@/services/api'
 import { initSocket, onNewMessage, offEvent, onNotification } from '@/services/socket'
+import { formatDistanceToNow } from 'date-fns'
+import { es } from 'date-fns/locale'
 import {
   Zap as ZapIcon,
   LayoutDashboard as DashboardIcon,
@@ -302,7 +319,8 @@ const unreadCount = ref(0)
 
 const isExpanded = computed(() => isLocked.value || isHovering.value)
 const sidebarWidth = computed(() => isExpanded.value ? 'w-64' : 'w-20')
-const contentMargin = computed(() => isExpanded.value ? 'ml-64' : 'ml-20')
+// Mobile: no margin (sidebar is overlay), Desktop: margin for sidebar
+const contentMargin = computed(() => isExpanded.value ? 'lg:ml-64' : 'lg:ml-20')
 
 const navigation = computed(() => [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon },
@@ -443,6 +461,11 @@ function getNotificationIconClass(type) {
     case 'system': return 'bg-slate-100 text-slate-600'
     default: return 'bg-slate-100 text-slate-600'
   }
+}
+
+function formatTime(date) {
+  if (!date) return ''
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: es })
 }
 
 // Watch notifications dropdown
