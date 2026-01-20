@@ -1,40 +1,91 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
+  <div class="space-y-4 md:space-y-6">
+    <!-- Header - Responsive -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-bold text-slate-800">Clientes</h2>
-        <p class="text-slate-500">{{ totalCustomers }} clientes registrados</p>
+        <h2 class="text-xl sm:text-2xl font-bold text-slate-800">Clientes</h2>
+        <p class="text-slate-500 text-sm">{{ totalCustomers }} clientes registrados</p>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <SearchIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            v-model="search"
-            type="text"
-            class="w-64 pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-            placeholder="Buscar por nombre o teléfono..."
-            @input="debouncedSearch"
-          />
-        </div>
-        <select v-model="stageFilter" class="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" @change="loadCustomers">
-          <option value="">Todas las etapas</option>
-          <option value="new">Nuevos</option>
-          <option value="contacted">Contactados</option>
-          <option value="qualified">Calificados</option>
-          <option value="proposal">Propuesta</option>
-          <option value="negotiation">Negociación</option>
-          <option value="won">Ganados</option>
-          <option value="lost">Perdidos</option>
-        </select>
-        <button @click="openCreateModal" class="btn-primary">
-          <PlusIcon class="w-4 h-4 mr-2" />
-          Nuevo Cliente
-        </button>
+      <button @click="openCreateModal" class="btn-primary w-full sm:w-auto">
+        <PlusIcon class="w-4 h-4 mr-2" />
+        Nuevo Cliente
+      </button>
+    </div>
+
+    <!-- Filters - Responsive -->
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="relative flex-1">
+        <SearchIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input
+          v-model="search"
+          type="text"
+          class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+          placeholder="Buscar por nombre o teléfono..."
+          @input="debouncedSearch"
+        />
       </div>
+      <select v-model="stageFilter" class="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" @change="loadCustomers">
+        <option value="">Todas las etapas</option>
+        <option value="new">Nuevos</option>
+        <option value="contacted">Contactados</option>
+        <option value="qualified">Calificados</option>
+        <option value="proposal">Propuesta</option>
+        <option value="negotiation">Negociación</option>
+        <option value="won">Ganados</option>
+        <option value="lost">Perdidos</option>
+      </select>
     </div>
     
-    <!-- Customers Table -->
-    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+    <!-- Mobile Cards View -->
+    <div class="md:hidden space-y-3">
+      <div
+        v-for="customer in customers"
+        :key="customer._id"
+        class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm"
+      >
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm"
+                 :class="customer.source?.channel === 'whatsapp' ? 'bg-emerald-500' : customer.source?.channel === 'messenger' ? 'bg-blue-500' : 'bg-primary-500'">
+              {{ customer.name?.[0]?.toUpperCase() || '?' }}
+            </div>
+            <div>
+              <div class="font-medium text-slate-800">{{ customer.name || 'Sin nombre' }}</div>
+              <div class="text-xs text-slate-500">{{ customer.phone || 'Sin teléfono' }}</div>
+            </div>
+          </div>
+          <span class="px-2 py-1 rounded-full text-xs font-medium" :class="getStageBadge(customer.stage)">
+            {{ getStageLabel(customer.stage) }}
+          </span>
+        </div>
+        
+        <div class="flex items-center justify-between text-sm">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500">Score:</span>
+            <div class="w-12 h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                class="h-full rounded-full"
+                :class="getScoreColor(customer.leadScore?.score || customer.leadScore)"
+                :style="{ width: `${customer.leadScore?.score || customer.leadScore || 0}%` }"
+              ></div>
+            </div>
+            <span class="font-medium text-slate-700">{{ customer.leadScore?.score || customer.leadScore || 0 }}%</span>
+          </div>
+          
+          <div class="flex items-center gap-1">
+            <RouterLink :to="`/customers/${customer._id}`" class="p-2 hover:bg-slate-100 rounded-lg">
+              <EyeIcon class="w-4 h-4 text-slate-500" />
+            </RouterLink>
+            <button @click="openEditModal(customer)" class="p-2 hover:bg-slate-100 rounded-lg">
+              <EditIcon class="w-4 h-4 text-slate-500" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop Table View -->
+    <div class="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
@@ -128,6 +179,15 @@
       <div v-if="loading" class="p-12 text-center">
         <LoaderIcon class="w-8 h-8 mx-auto animate-spin text-primary-500" />
       </div>
+    </div>
+
+    <!-- Mobile Empty/Loading States -->
+    <div v-if="customers.length === 0 && !loading" class="md:hidden p-8 text-center bg-white rounded-xl border border-slate-200">
+      <UsersIcon class="w-12 h-12 mx-auto mb-3 text-slate-300" />
+      <p class="text-slate-500">No hay clientes</p>
+    </div>
+    <div v-if="loading" class="md:hidden p-8 text-center">
+      <LoaderIcon class="w-6 h-6 mx-auto animate-spin text-primary-500" />
     </div>
     
     <!-- Pagination -->

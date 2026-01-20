@@ -483,10 +483,103 @@ onMounted(async () => {
   await loadAllChannels()
   await checkCalendarStatus()
   
+  // Handle calendar OAuth callback
   if (route.query.calendar === 'connected') {
     calendarConnected.value = true
   }
+  
+  // Handle Facebook/Instagram OAuth mobile callback
+  await handleMobileOAuthCallback()
 })
+
+// Handle mobile OAuth redirect callback
+async function handleMobileOAuthCallback() {
+  // Check for access_token in URL hash (Facebook returns token in hash for implicit flow)
+  const hash = window.location.hash
+  if (!hash) return
+  
+  // Parse hash params
+  const params = new URLSearchParams(hash.substring(1))
+  const accessToken = params.get('access_token')
+  
+  if (!accessToken) return
+  
+  // Check which OAuth we're handling
+  const oauthType = route.query.oauth
+  
+  if (oauthType === 'facebook') {
+    console.log('Processing Facebook OAuth callback...')
+    await processFacebookOAuthCallback(accessToken)
+  } else if (oauthType === 'instagram') {
+    console.log('Processing Instagram OAuth callback...')
+    await processInstagramOAuthCallback(accessToken)
+  }
+  
+  // Clean up URL
+  window.history.replaceState({}, document.title, window.location.pathname)
+}
+
+async function processFacebookOAuthCallback(accessToken) {
+  pendingAccessToken.value = accessToken
+  connectingFacebook.value = true
+  
+  try {
+    // Fetch pages using the access token directly via API call
+    const response = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,category&access_token=${accessToken}`)
+    const pagesResponse = await response.json()
+    
+    if (pagesResponse.error) {
+      console.error('Facebook API error:', pagesResponse.error)
+      alert('Error de Facebook: ' + pagesResponse.error.message)
+      return
+    }
+    
+    if (pagesResponse.data && pagesResponse.data.length > 0) {
+      availablePages.value = pagesResponse.data
+      showPageSelector.value = true
+    } else {
+      alert('No se encontraron páginas de Facebook.')
+    }
+  } catch (error) {
+    console.error('Failed to process Facebook callback:', error)
+    alert('Error al procesar la autorización de Facebook')
+  } finally {
+    connectingFacebook.value = false
+  }
+}
+
+async function processInstagramOAuthCallback(accessToken) {
+  connectingInstagram.value = true
+  
+  try {
+    // Fetch pages with Instagram accounts
+    const response = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&access_token=${accessToken}`)
+    const pagesResponse = await response.json()
+    
+    if (pagesResponse.data) {
+      const accountsWithInstagram = pagesResponse.data
+        .filter(page => page.instagram_business_account)
+        .map(page => ({
+          ...page.instagram_business_account,
+          pageId: page.id,
+          pageName: page.name,
+          pageAccessToken: page.access_token
+        }))
+      
+      if (accountsWithInstagram.length > 0) {
+        availableInstagramAccounts.value = accountsWithInstagram
+        showInstagramSelector.value = true
+      } else {
+        alert('No se encontraron cuentas de Instagram Business vinculadas.')
+      }
+    }
+  } catch (error) {
+    console.error('Failed to process Instagram callback:', error)
+    alert('Error al procesar la autorización de Instagram')
+  } finally {
+    connectingInstagram.value = false
+  }
+}
 
 async function loadAllChannels() {
   await Promise.all([
@@ -582,11 +675,35 @@ async function saveWhatsAppConnection() {
 }
 
 // ============ FACEBOOK ============
+// Detect if mobile device
+function isMobileDevice() {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+         (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+}
+
 async function connectFacebook() {
   connectingFacebook.value = true
   
   try {
-    // Check if FB SDK is loaded and initialized
+    // Get Facebook App ID
+    const configResponse = await api.get('/config/public')
+    const appId = configResponse.data.facebookAppId
+    
+    if (!appId) {
+      alert('Facebook App ID no configurado')
+      connectingFacebook.value = false
+      return
+    }
+    
+    // On mobile, use redirect flow instead of popup
+    if (isMobileDevice()) {
+      const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels?oauth=facebook')
+      const scope = 'pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata'
+      window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`
+      return
+    }
+    
+    // Desktop: use popup flow
     if (typeof FB === 'undefined' || !window.__FB_INITIALIZED__) {
       alert('Facebook SDK no está listo. Espera un momento y vuelve a intentar.')
       connectingFacebook.value = false
@@ -658,6 +775,25 @@ async function connectInstagram() {
   connectingInstagram.value = true
   
   try {
+    // Get Facebook App ID for redirect
+    const configResponse = await api.get('/config/public')
+    const appId = configResponse.data.facebookAppId
+    
+    if (!appId) {
+      alert('Facebook App ID no configurado')
+      connectingInstagram.value = false
+      return
+    }
+    
+    // On mobile, use redirect flow instead of popup
+    if (isMobileDevice()) {
+      const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels?oauth=instagram')
+      const scope = 'pages_show_list,pages_read_engagement,pages_messaging,instagram_basic,instagram_manage_messages'
+      window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`
+      return
+    }
+    
+    // Desktop: use popup flow
     if (typeof FB === 'undefined' || !window.__FB_INITIALIZED__) {
       alert('Facebook SDK no está listo. Espera un momento y vuelve a intentar.')
       connectingInstagram.value = false

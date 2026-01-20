@@ -1,12 +1,12 @@
 <template>
   <div class="space-y-6">
     <!-- Welcome section -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900">
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-900">
           ¡Hola, {{ userName }}! 👋
         </h2>
-        <p class="text-surface-600 mt-1">
+        <p class="text-surface-600 mt-1 text-sm sm:text-base">
           Aquí está el resumen de tu negocio
         </p>
       </div>

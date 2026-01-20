@@ -1,26 +1,27 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
+  <div class="space-y-4 md:space-y-6">
+    <!-- Header - Responsive -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-bold text-slate-800">Catálogo de Productos</h2>
-        <p class="text-slate-500">{{ products.length }} productos</p>
+        <h2 class="text-xl sm:text-2xl font-bold text-slate-800">Catálogo de Productos</h2>
+        <p class="text-slate-500 text-sm">{{ products.length }} productos</p>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <SearchIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            v-model="search"
-            type="text"
-            class="w-64 pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-            placeholder="Buscar productos..."
-            @input="debouncedSearch"
-          />
-        </div>
-        <button @click="showModal = true" class="btn-primary">
-          <PlusIcon class="w-5 h-5 mr-2" />
-          Nuevo Producto
-        </button>
-      </div>
+      <button @click="showModal = true" class="btn-primary w-full sm:w-auto">
+        <PlusIcon class="w-5 h-5 mr-2" />
+        Nuevo Producto
+      </button>
+    </div>
+    
+    <!-- Search - Responsive -->
+    <div class="relative">
+      <SearchIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      <input
+        v-model="search"
+        type="text"
+        class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+        placeholder="Buscar productos..."
+        @input="debouncedSearch"
+      />
     </div>
     
     <!-- Products Grid -->
