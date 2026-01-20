@@ -241,8 +241,8 @@
         <h2 class="section-title">Soporte y Capacitación</h2>
         <p class="section-sub">Te acompañamos en cada paso del camino</p>
         <div class="support-carousel">
-          <div class="carousel-track" :style="{ transform: `translateX(-${activeSupport * 25}%)` }">
-            <div class="carousel-item glass-card" v-for="(s, i) in supportItems" :key="i" :class="{ active: activeSupport === i }">
+          <div class="carousel-group">
+            <div class="carousel-card glass-card" v-for="(s, i) in supportItems" :key="'a'+i">
               <div class="support-icon-wrap">
                 <component :is="s.icon" class="support-icon" />
               </div>
@@ -250,8 +250,14 @@
               <p>{{ s.desc }}</p>
             </div>
           </div>
-          <div class="carousel-dots">
-            <button v-for="(s, i) in supportItems" :key="i" :class="{ active: activeSupport === i }" @click="activeSupport = i"></button>
+          <div class="carousel-group" aria-hidden="true">
+            <div class="carousel-card glass-card" v-for="(s, i) in supportItems" :key="'b'+i">
+              <div class="support-icon-wrap">
+                <component :is="s.icon" class="support-icon" />
+              </div>
+              <h4>{{ s.title }}</h4>
+              <p>{{ s.desc }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -549,8 +555,11 @@ function getParticleStyle(i) {
 /* Features Bento */
 .features-bento { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 1.5rem; margin-bottom: 2rem; }
 .feature-main { grid-row: span 2; padding: 2.5rem; display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5rem; }
-.feature-ai { background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.15)); border: 1px solid rgba(99,102,241,0.25); }
-.feature-main h3 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+.feature-ai { background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.15)); border: 1px solid rgba(99,102,241,0.25); position: relative; overflow: hidden; transition: all 0.3s; }
+.feature-ai::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7); transform: scaleX(0); transition: transform 0.3s; }
+.feature-ai:hover { transform: translateY(-5px); box-shadow: 0 20px 45px rgba(99,102,241,0.18); }
+.feature-ai:hover::before { transform: scaleX(1); }
+.feature-main h3 { font-size: 1.6rem; margin-bottom: 0.5rem; font-weight: 700; background: linear-gradient(135deg, #4f46e5, #7c3aed, #a855f7); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .feature-main p { color: #6b7280; margin-bottom: 0; }
 .ai-logos-showcase { display: flex; gap: 1.5rem; justify-content: center; align-items: center; padding: 2rem 1rem; margin-top: auto; }
 .ai-logo-item { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 1.5rem; background: rgba(255,255,255,0.7); border-radius: 16px; transition: all 0.4s; opacity: 0.4; transform: scale(0.9); }
@@ -560,7 +569,11 @@ function getParticleStyle(i) {
 .ai-models-badges { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
 .model-badge { padding: 0.5rem 1rem; background: rgba(99,102,241,0.1); border-radius: 50px; font-size: 0.8rem; font-weight: 500; color: #6366f1; transition: all 0.3s; }
 .model-badge.active { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
-.feature-wa, .feature-kb { padding: 2rem; background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.12)); border: 1px solid rgba(99,102,241,0.2); backdrop-filter: blur(10px); }
+.feature-wa, .feature-kb { padding: 2rem; background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.12)); border: 1px solid rgba(99,102,241,0.2); backdrop-filter: blur(10px); position: relative; overflow: hidden; transition: all 0.3s; }
+.feature-wa::before, .feature-kb::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #22c55e, #16a34a); transform: scaleX(0); transition: transform 0.3s; }
+.feature-kb::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.feature-wa:hover, .feature-kb:hover { transform: translateY(-5px); box-shadow: 0 15px 35px rgba(99,102,241,0.15); background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(245,243,255,0.85)); }
+.feature-wa:hover::before, .feature-kb:hover::before { transform: scaleX(1); }
 .feature-wa h4, .feature-kb h4 { font-size: 1.1rem; margin-bottom: 0.75rem; font-weight: 700; background: linear-gradient(135deg, #4f46e5, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .feature-wa p, .feature-kb p { font-size: 0.9rem; color: #6b7280; margin-bottom: 1rem; line-height: 1.5; }
 .wa-icon, .kb-icon { width: 50px; height: 50px; background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 14px; display: flex; align-items: center; justify-content: center; color: white; margin-bottom: 1.25rem; box-shadow: 0 6px 18px rgba(34,197,94,0.35); }
@@ -649,20 +662,53 @@ function getParticleStyle(i) {
 .metric-value small { font-size: 1.5rem; opacity: 0.8; }
 .metric-label { font-size: 0.9rem; opacity: 0.85; margin-top: 0.75rem; display: block; }
 
-/* Support Carousel */
-.support-carousel { position: relative; overflow: visible; padding: 2rem 0; }
-.carousel-track { display: flex; gap: 1.5rem; transition: transform 0.5s ease; padding: 1rem 2rem; justify-content: center; flex-wrap: wrap; }
-.carousel-item { width: 280px; flex-shrink: 0; padding: 2.5rem 2rem; text-align: center; background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.12)); border: 1px solid rgba(99,102,241,0.2); border-radius: 20px; transition: all 0.4s; opacity: 0.5; transform: scale(0.9); }
-.carousel-item.active { opacity: 1; transform: scale(1.05); box-shadow: 0 20px 50px rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.35); background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(245,243,255,0.9)); z-index: 1; }
+/* Support Carousel - Infinite Scroll */
+.support-carousel { 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 2rem 0; 
+  overflow: hidden; 
+  display: flex;
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+.support-carousel > * { flex: 0 0 100%; }
+.carousel-group { 
+  display: flex; 
+  gap: 1.5rem; 
+  padding-right: 1.5rem;
+  will-change: transform;
+  animation: carouselScroll 20s linear infinite;
+}
+.support-carousel:hover .carousel-group { animation-play-state: paused; }
+@keyframes carouselScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+.carousel-card { 
+  width: 280px; 
+  flex-shrink: 0; 
+  padding: 2.5rem 2rem; 
+  text-align: center; 
+  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(245,243,255,0.85)); 
+  border: 1px solid rgba(99,102,241,0.2); 
+  border-radius: 20px; 
+  transition: all 0.3s;
+}
+.carousel-card:hover { 
+  transform: translateY(-5px); 
+  box-shadow: 0 20px 50px rgba(99,102,241,0.2); 
+  border-color: rgba(99,102,241,0.35);
+}
 .support-icon-wrap { width: 70px; height: 70px; margin: 0 auto 1.5rem; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 20px; box-shadow: 0 8px 25px rgba(99,102,241,0.3); }
 .support-icon { width: 32px; height: 32px; color: white; }
-.carousel-item h4 { font-size: 1.2rem; margin-bottom: 0.75rem; font-weight: 700; background: linear-gradient(135deg, #4f46e5, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.carousel-item p { font-size: 0.9rem; color: #6b7280; line-height: 1.6; }
-.carousel-dots { display: flex; justify-content: center; gap: 0.75rem; margin-top: 2rem; }
-.carousel-dots button { width: 12px; height: 12px; border-radius: 50%; border: none; background: rgba(99,102,241,0.2); cursor: pointer; transition: all 0.3s; }
-.carousel-dots button.active { background: linear-gradient(135deg, #6366f1, #8b5cf6); transform: scale(1.2); box-shadow: 0 2px 8px rgba(99,102,241,0.4); }
-@media (max-width: 1024px) { .carousel-track { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; } .carousel-track::-webkit-scrollbar { display: none; } .carousel-item { scroll-snap-align: center; min-width: 280px; } }
-@media (max-width: 640px) { .carousel-item { min-width: 85vw; width: 85vw; } .carousel-track { padding: 1rem; gap: 1rem; } }
+.carousel-card h4 { font-size: 1.2rem; margin-bottom: 0.75rem; font-weight: 700; background: linear-gradient(135deg, #4f46e5, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.carousel-card p { font-size: 0.9rem; color: #6b7280; line-height: 1.6; }
+@media (max-width: 768px) { 
+  .carousel-card { width: 260px; padding: 2rem 1.5rem; } 
+  .carousel-group { gap: 1rem; padding-right: 1rem; }
+  .support-carousel { mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent); }
+}
 
 /* Footer */
 .footer { position: relative; padding: 5rem 2rem 2rem; overflow: hidden; z-index: 1; }
