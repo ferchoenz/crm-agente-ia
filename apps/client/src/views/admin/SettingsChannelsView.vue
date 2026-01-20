@@ -498,19 +498,19 @@ async function handleMobileOAuthCallback() {
   const hash = window.location.hash
   if (!hash) return
   
-  // Parse hash params
+  // Parse hash params - Facebook returns: #access_token=xxx&state=xxx&...
   const params = new URLSearchParams(hash.substring(1))
   const accessToken = params.get('access_token')
+  const state = params.get('state') // 'facebook' or 'instagram'
   
   if (!accessToken) return
   
-  // Check which OAuth we're handling
-  const oauthType = route.query.oauth
+  console.log('Mobile OAuth callback detected, state:', state)
   
-  if (oauthType === 'facebook') {
+  if (state === 'facebook') {
     console.log('Processing Facebook OAuth callback...')
     await processFacebookOAuthCallback(accessToken)
-  } else if (oauthType === 'instagram') {
+  } else if (state === 'instagram') {
     console.log('Processing Instagram OAuth callback...')
     await processInstagramOAuthCallback(accessToken)
   }
@@ -697,9 +697,9 @@ async function connectFacebook() {
     
     // On mobile, use redirect flow instead of popup
     if (isMobileDevice()) {
-      const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels?oauth=facebook')
+      const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels')
       const scope = 'pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata'
-      window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`
+      window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token&state=facebook`
       return
     }
     
@@ -787,9 +787,9 @@ async function connectInstagram() {
     
     // On mobile, use redirect flow instead of popup
     if (isMobileDevice()) {
-      const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels?oauth=instagram')
+      const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels')
       const scope = 'pages_show_list,pages_read_engagement,pages_messaging,instagram_basic,instagram_manage_messages'
-      window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`
+      window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token&state=instagram`
       return
     }
     
