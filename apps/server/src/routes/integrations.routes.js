@@ -9,7 +9,37 @@ import EmbeddedSignUpService from '../services/integrations/embedded-signup.serv
 
 const router = Router();
 
-// All routes require auth and tenant context
+// ==================== GOOGLE CALENDAR OAuth Callback ====================
+// This route MUST be before auth middleware because Google redirects here without JWT token
+
+/**
+ * Google Calendar OAuth callback (NO AUTH REQUIRED - external redirect from Google)
+ */
+router.get('/google/callback', async (req, res) => {
+    try {
+        const { code, state } = req.query;
+
+        if (!code || !state) {
+            return res.redirect(`${process.env.CLIENT_URL}/settings/channels?error=missing_params`);
+        }
+
+        const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+        const organizationId = stateData.organizationId;
+
+        const service = new CalendarService(organizationId);
+        service.initialize();
+
+        const tokens = await service.exchangeCode(code);
+        await service.saveTokens(tokens);
+
+        res.redirect(`${process.env.CLIENT_URL}/settings/channels?calendar=connected`);
+    } catch (error) {
+        logger.error('Google OAuth callback error:', error);
+        res.redirect(`${process.env.CLIENT_URL}/settings/channels?error=oauth_failed`);
+    }
+});
+
+// All other routes require auth and tenant context
 router.use(authenticate);
 router.use(tenantIsolation);
 
@@ -36,33 +66,6 @@ router.get('/google/calendar/auth-url', requireAdmin, (req, res) => {
 
     const authUrl = service.getAuthUrl(state);
     res.json({ authUrl });
-});
-
-/**
- * Google Calendar OAuth callback
- */
-router.get('/google/callback', async (req, res) => {
-    try {
-        const { code, state } = req.query;
-
-        if (!code || !state) {
-            return res.redirect(`${process.env.CLIENT_URL}/settings/channels?error=missing_params`);
-        }
-
-        const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-        const organizationId = stateData.organizationId;
-
-        const service = new CalendarService(organizationId);
-        service.initialize();
-
-        const tokens = await service.exchangeCode(code);
-        await service.saveTokens(tokens);
-
-        res.redirect(`${process.env.CLIENT_URL}/settings/channels?calendar=connected`);
-    } catch (error) {
-        logger.error('Google OAuth callback error:', error);
-        res.redirect(`${process.env.CLIENT_URL}/settings/channels?error=oauth_failed`);
-    }
 });
 
 /**
