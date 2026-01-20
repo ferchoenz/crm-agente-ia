@@ -3,7 +3,7 @@
     <div class="max-w-4xl mx-auto">
       <!-- Header with Logo -->
       <header class="text-center mb-12">
-        <router-link to="/login" class="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 transition-colors mb-8">
+        <router-link to="/" class="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 transition-colors mb-8">
           <ArrowLeftIcon class="w-4 h-4" />
           <span>Volver al inicio</span>
         </router-link>

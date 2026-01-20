@@ -2,6 +2,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 
 const routes = [
+    // Landing page (public)
+    {
+        path: '/',
+        name: 'landing',
+        component: () => import('@/views/LandingView.vue')
+    },
+
     // Auth routes
     {
         path: '/login',
