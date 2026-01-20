@@ -698,7 +698,7 @@ async function connectFacebook() {
     // On mobile, use redirect flow instead of popup
     if (isMobileDevice()) {
       const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels')
-      const scope = 'pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata'
+      const scope = 'pages_show_list,pages_messaging,pages_manage_metadata'
       window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token&state=facebook`
       return
     }
@@ -788,7 +788,7 @@ async function connectInstagram() {
     // On mobile, use redirect flow instead of popup
     if (isMobileDevice()) {
       const redirectUri = encodeURIComponent(window.location.origin + '/settings/channels')
-      const scope = 'pages_show_list,pages_read_engagement,pages_messaging,instagram_basic,instagram_manage_messages'
+      const scope = 'pages_show_list,pages_messaging,instagram_basic,instagram_manage_messages'
       window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token&state=instagram`
       return
     }
