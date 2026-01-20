@@ -23,6 +23,11 @@ const routes = [
         name: 'privacy',
         component: () => import('@/views/legal/PrivacyPolicyView.vue')
     },
+    {
+        path: '/ai-policy',
+        name: 'ai-policy',
+        component: () => import('@/views/legal/AiPolicyView.vue')
+    },
 
     // Super Admin routes
     {

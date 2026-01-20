@@ -127,7 +127,10 @@
                 <span class="text-sm text-slate-600">OpenAI</span>
               </div>
             </div>
-            <p class="text-slate-500 text-sm">Al conectar estas plataformas, aceptas sus políticas de privacidad.</p>
+            <p class="text-slate-500 text-sm mb-3">Al conectar estas plataformas, aceptas sus políticas de privacidad.</p>
+            <router-link to="/ai-policy" class="inline-flex items-center gap-2 text-violet-600 text-sm font-medium hover:text-violet-700 transition-colors">
+              <span>Ver nuestra Política de IA Generativa →</span>
+            </router-link>
           </section>
 
           <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
