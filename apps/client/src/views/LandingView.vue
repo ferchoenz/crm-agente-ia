@@ -25,7 +25,7 @@
         </nav>
         <div class="header-actions">
           <router-link to="/login" class="btn-ghost">Iniciar sesión</router-link>
-          <a href="#contact" class="btn-primary">Demo gratis</a>
+          <a href="https://kogniastudio.com/contacto" target="_blank" class="btn-primary">Demo gratis</a>
         </div>
         <button class="menu-toggle" @click="menuOpen = !menuOpen">
           <span></span><span></span><span></span>
@@ -43,7 +43,7 @@
         <h1>Automatiza tu atención<br/><span class="gradient-text">con Inteligencia Artificial</span></h1>
         <p>Centraliza WhatsApp, Messenger e Instagram. Responde automáticamente con IA y convierte más leads.</p>
         <div class="hero-ctas">
-          <a href="#contact" class="btn-primary btn-lg">Solicita una demo</a>
+          <a href="https://kogniastudio.com/contacto" target="_blank" class="btn-primary btn-lg">Solicita una demo</a>
           <router-link to="/login" class="btn-outline">Iniciar sesión</router-link>
         </div>
       </div>
@@ -113,7 +113,7 @@
             </div>
             <div class="ai-models">
               <div class="model" v-for="(m, i) in aiModels" :key="i" :class="{ active: activeModel === i }">
-                <component :is="m.icon" />
+                <img :src="m.logo" :alt="m.name" class="model-logo" />
                 <span>{{ m.name }}</span>
               </div>
             </div>
@@ -158,26 +158,34 @@
     <!-- CTA Section -->
     <section class="cta-section">
       <div class="cta-bg"></div>
+      <div class="cta-particles">
+        <div v-for="i in 8" :key="i" class="cta-particle"></div>
+      </div>
       <div class="container cta-content">
         <div class="cta-text">
-          <h2>La forma más rápida de implementar IA</h2>
+          <h2 class="cta-title">La forma <span class="text-glow">más rápida</span> de implementar <span class="text-gradient-gold">IA</span></h2>
           <p>Automatiza la atención, captura más leads y cierra más ventas.</p>
-          <a href="#contact" class="btn-white">Comenzar ahora</a>
+          <a href="https://kogniastudio.com/contacto" target="_blank" class="btn-cta">🚀 Comenzar ahora</a>
         </div>
-        <div class="cta-image glass-card">
-          <div class="crm-preview">
+        <div class="cta-image">
+          <div class="crm-preview crm-animated">
+            <div class="crm-glow"></div>
             <div class="crm-header">
               <div class="crm-dots"><span></span><span></span><span></span></div>
-              <span>Dashboard</span>
+              <span>Agentify Dashboard</span>
             </div>
             <div class="crm-body">
               <div class="crm-stat">
-                <span class="crm-stat-value">1,234</span>
-                <span class="crm-stat-label">Leads</span>
+                <span class="crm-stat-value">{{ animatedLeads.toLocaleString() }}</span>
+                <span class="crm-stat-label">Leads activos</span>
               </div>
               <div class="crm-stat">
-                <span class="crm-stat-value">89%</span>
-                <span class="crm-stat-label">Respuesta</span>
+                <span class="crm-stat-value">{{ animatedResponse }}%</span>
+                <span class="crm-stat-label">Tasa respuesta</span>
+              </div>
+              <div class="crm-stat">
+                <span class="crm-stat-value">{{ animatedConversion }}%</span>
+                <span class="crm-stat-label">Conversión</span>
               </div>
             </div>
           </div>
@@ -197,7 +205,7 @@
         <div class="use-case-panel glass-card">
           <div class="uc-image">
             <div class="uc-image-bg"></div>
-            <component :is="useCases[activeUC].icon" class="uc-icon-big" />
+            <img :src="useCases[activeUC].image" :alt="useCases[activeUC].title" class="uc-img" />
           </div>
           <div class="uc-content">
             <h3>{{ useCases[activeUC].title }}</h3>
@@ -211,7 +219,7 @@
     <!-- Metrics -->
     <section class="section metrics-section" ref="metricsRef">
       <div class="container">
-        <h2 class="section-title">El efecto Agentify</h2>
+        <h2 class="section-title metrics-title"><span class="text-gradient-white">El efecto</span> <span class="text-gradient-gold">Agentify</span></h2>
         <p class="section-sub">Resultados reales de nuestros clientes</p>
         <div class="metrics-grid">
           <div class="glass-card metric" v-for="(m, i) in metrics" :key="i">
@@ -260,7 +268,7 @@
       <div class="container footer-content">
         <div class="footer-cta glass-card">
           <h2>¿Listo para transformar tu atención?</h2>
-          <a href="mailto:info@kogniastudio.com" class="btn-primary btn-lg">Contactar ahora</a>
+          <a href="https://kogniastudio.com/contacto" target="_blank" class="btn-primary btn-lg btn-glow">🚀 Contactar ahora</a>
         </div>
         <div class="footer-grid">
           <div class="footer-brand">
@@ -306,11 +314,14 @@ const activeModel = ref(0)
 const activeUC = ref(0)
 const metricsRef = ref(null)
 const animatedMetrics = ref([0, 0, 0, 0])
+const animatedLeads = ref(0)
+const animatedResponse = ref(0)
+const animatedConversion = ref(0)
 
 const aiModels = [
-  { name: 'Gemini', icon: SparklesIcon },
-  { name: 'Llama', icon: BrainIcon },
-  { name: 'DeepSeek', icon: TargetIcon }
+  { name: 'Gemini', logo: '/gemini-logo.png' },
+  { name: 'Llama', logo: '/llama-logo.png' },
+  { name: 'DeepSeek', logo: '/deepseek-logo.png' }
 ]
 
 const metrics = [
@@ -321,10 +332,10 @@ const metrics = [
 ]
 
 const useCases = [
-  { label: 'Ventas', icon: BriefcaseIcon, title: 'Equipos de Ventas', desc: 'Gestiona grandes volúmenes de leads con todas las interacciones centralizadas y enriquecidas con IA.', quote: 'Ahora es mucho más sencillo dar seguimiento sin perder el contexto.' },
-  { label: 'E-commerce', icon: ShoppingCartIcon, title: 'Tiendas en Línea', desc: 'Automatiza la atención de tu tienda. Responde sobre productos, stock y envíos 24/7.', quote: 'Nuestras ventas aumentaron 40% con el bot de Agentify.' },
-  { label: 'Servicios', icon: BuildingIcon, title: 'Empresas de Servicios', desc: 'Gestiona citas, cotizaciones y seguimiento de clientes de forma automatizada.', quote: 'Redujimos el tiempo de respuesta de horas a segundos.' },
-  { label: 'Soporte', icon: UsersIcon, title: 'Atención al Cliente', desc: 'Resuelve tickets, responde FAQs y escala casos complejos automáticamente.', quote: 'El 80% de consultas se resuelven sin intervención humana.' }
+  { label: 'Ventas', image: '/uc-ventas.png', title: 'Equipos de Ventas', desc: 'Gestiona grandes volúmenes de leads con todas las interacciones centralizadas y enriquecidas con IA.', quote: 'Ahora es mucho más sencillo dar seguimiento sin perder el contexto.' },
+  { label: 'E-commerce', image: '/uc-ecommerce.png', title: 'Tiendas en Línea', desc: 'Automatiza la atención de tu tienda. Responde sobre productos, stock y envíos 24/7.', quote: 'Nuestras ventas aumentaron 40% con el bot de Agentify.' },
+  { label: 'Servicios', image: '/uc-servicios.png', title: 'Empresas de Servicios', desc: 'Gestiona citas, cotizaciones y seguimiento de clientes de forma automatizada.', quote: 'Redujimos el tiempo de respuesta de horas a segundos.' },
+  { label: 'Soporte', image: '/uc-soporte.png', title: 'Atención al Cliente', desc: 'Resuelve tickets, responde FAQs y escala casos complejos automáticamente.', quote: 'El 80% de consultas se resuelven sin intervención humana.' }
 ]
 
 // Chat animation
@@ -357,6 +368,7 @@ onMounted(() => {
   modelInterval = setInterval(() => { activeModel.value = (activeModel.value + 1) % aiModels.length }, 2000)
   window.addEventListener('scroll', handleScroll)
   handleScroll()
+  animateDashboard()
 })
 
 onUnmounted(() => {
@@ -393,6 +405,22 @@ let ucInterval
 onMounted(() => { ucInterval = setInterval(() => { activeUC.value = (activeUC.value + 1) % useCases.length }, 4000) })
 onUnmounted(() => clearInterval(ucInterval))
 
+// Dashboard animation
+function animateDashboard() {
+  const targets = { leads: 1247, response: 94, conversion: 67 }
+  const duration = 2000
+  const steps = 60
+  let step = 0
+  const interval = setInterval(() => {
+    step++
+    const progress = step / steps
+    animatedLeads.value = Math.round(targets.leads * progress)
+    animatedResponse.value = Math.round(targets.response * progress)
+    animatedConversion.value = Math.round(targets.conversion * progress)
+    if (step >= steps) clearInterval(interval)
+  }, duration / steps)
+}
+
 function getParticleStyle(i) {
   return { width: `${Math.random() * 4 + 2}px`, height: `${Math.random() * 4 + 2}px`, left: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 8}s`, animationDuration: `${Math.random() * 10 + 15}s` }
 }
@@ -415,7 +443,18 @@ function getParticleStyle(i) {
 @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, -30px) scale(1.05); } }
 
 /* Glass */
-.glass-card { background: rgba(255,255,255,0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.8); border-radius: 20px; box-shadow: 0 8px 32px rgba(99,102,241,0.1); }
+.glass-card { 
+  background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(245,243,255,0.7)); 
+  backdrop-filter: blur(20px); 
+  border: 1px solid rgba(139,92,246,0.2); 
+  border-radius: 20px; 
+  box-shadow: 0 8px 32px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.8); 
+  transition: all 0.3s ease;
+}
+.glass-card:hover {
+  box-shadow: 0 15px 45px rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
+  border-color: rgba(139,92,246,0.35);
+}
 
 /* Header */
 .header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 1rem 2rem; transition: all 0.3s; }
@@ -496,9 +535,10 @@ function getParticleStyle(i) {
 .feature-main h3 { font-size: 1.5rem; margin-bottom: 0.5rem; }
 .feature-main p { color: #6b7280; margin-bottom: 2rem; }
 .ai-models { display: flex; gap: 1rem; flex-wrap: wrap; }
-.model { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: rgba(99,102,241,0.1); border-radius: 12px; font-weight: 500; font-size: 0.9rem; transition: all 0.3s; opacity: 0.5; }
-.model.active { opacity: 1; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; box-shadow: 0 4px 15px rgba(99,102,241,0.3); }
-.model svg { width: 20px; height: 20px; }
+.model { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; background: rgba(99,102,241,0.1); border-radius: 12px; font-weight: 600; font-size: 0.95rem; transition: all 0.3s; opacity: 0.5; cursor: default; }
+.model.active { opacity: 1; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; box-shadow: 0 4px 15px rgba(99,102,241,0.3); transform: scale(1.05); }
+.model-logo { width: 28px; height: 28px; object-fit: contain; filter: grayscale(0.5); transition: filter 0.3s; }
+.model.active .model-logo { filter: grayscale(0) brightness(1.2); }
 .feature-wa, .feature-kb { padding: 1.5rem; }
 .feature-wa h4, .feature-kb h4 { font-size: 1rem; margin-bottom: 0.5rem; }
 .feature-wa p, .feature-kb p { font-size: 0.85rem; color: #6b7280; margin-bottom: 1rem; }
@@ -516,73 +556,101 @@ function getParticleStyle(i) {
 @media (max-width: 768px) { .features-bento { grid-template-columns: 1fr; } .feature-main { grid-row: span 1; } }
 
 /* CTA Section */
-.cta-section { position: relative; padding: 6rem 2rem; overflow: hidden; }
-.cta-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); }
-.cta-content { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+.cta-section { position: relative; padding: 8rem 2rem; overflow: hidden; }
+.cta-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%); }
+.cta-particles { position: absolute; inset: 0; overflow: hidden; }
+.cta-particle { position: absolute; width: 6px; height: 6px; background: rgba(255,255,255,0.3); border-radius: 50%; animation: floatParticle 8s infinite; }
+.cta-particle:nth-child(1) { left: 10%; top: 20%; animation-delay: 0s; }
+.cta-particle:nth-child(2) { left: 20%; top: 80%; animation-delay: 1s; }
+.cta-particle:nth-child(3) { left: 60%; top: 30%; animation-delay: 2s; }
+.cta-particle:nth-child(4) { left: 80%; top: 70%; animation-delay: 3s; }
+.cta-particle:nth-child(5) { left: 40%; top: 50%; animation-delay: 4s; }
+.cta-particle:nth-child(6) { left: 90%; top: 40%; animation-delay: 5s; }
+.cta-particle:nth-child(7) { left: 30%; top: 10%; animation-delay: 6s; }
+.cta-particle:nth-child(8) { left: 70%; top: 90%; animation-delay: 7s; }
+@keyframes floatParticle { 0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; } 50% { transform: translateY(-20px) scale(1.5); opacity: 0.6; } }
+.cta-content { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
 .cta-text { color: white; }
-.cta-text h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 1rem; }
-.cta-text p { opacity: 0.9; margin-bottom: 2rem; }
-.cta-image { padding: 1rem; }
-.crm-preview { background: white; border-radius: 12px; overflow: hidden; }
-.crm-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: #f3f4f6; }
-.crm-dots { display: flex; gap: 4px; }
-.crm-dots span { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; }
+.cta-title { font-size: clamp(1.8rem, 4vw, 2.8rem); margin-bottom: 1.5rem; line-height: 1.2; }
+.text-glow { text-shadow: 0 0 30px rgba(255,255,255,0.5); }
+.text-gradient-gold { background: linear-gradient(135deg, #fbbf24, #f59e0b, #fcd34d); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.text-gradient-white { background: linear-gradient(135deg, #fff, #e0e7ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cta-text p { opacity: 0.9; margin-bottom: 2.5rem; font-size: 1.1rem; }
+.btn-cta { display: inline-flex; align-items: center; gap: 0.5rem; background: white; color: #6366f1; padding: 1.25rem 2.5rem; border-radius: 50px; font-weight: 700; font-size: 1.1rem; text-decoration: none; box-shadow: 0 10px 40px rgba(0,0,0,0.2); transition: all 0.3s; }
+.btn-cta:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 15px 50px rgba(0,0,0,0.3); }
+.btn-glow { animation: btnGlow 2s infinite; }
+@keyframes btnGlow { 0%, 100% { box-shadow: 0 4px 15px rgba(99,102,241,0.4); } 50% { box-shadow: 0 4px 30px rgba(99,102,241,0.7), 0 0 60px rgba(99,102,241,0.3); } }
+.cta-image { perspective: 1000px; }
+.crm-preview { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.25); }
+.crm-animated { animation: floatDashboard 4s ease-in-out infinite; position: relative; }
+.crm-glow { position: absolute; inset: -2px; background: linear-gradient(135deg, #6366f1, #a855f7, #6366f1); border-radius: 18px; z-index: -1; animation: rotateGlow 3s linear infinite; }
+@keyframes floatDashboard { 0%, 100% { transform: translateY(0) rotateX(2deg); } 50% { transform: translateY(-10px) rotateX(-2deg); } }
+@keyframes rotateGlow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+.crm-header { display: flex; align-items: center; gap: 0.5rem; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f8fafc, #f1f5f9); }
+.crm-dots { display: flex; gap: 6px; }
+.crm-dots span { width: 10px; height: 10px; border-radius: 50%; }
 .crm-dots span:first-child { background: #ef4444; }
 .crm-dots span:nth-child(2) { background: #f59e0b; }
 .crm-dots span:nth-child(3) { background: #22c55e; }
-.crm-header span { font-size: 0.75rem; color: #6b7280; margin-left: auto; }
-.crm-body { padding: 1.5rem; display: flex; gap: 2rem; justify-content: center; }
-.crm-stat { text-align: center; }
-.crm-stat-value { display: block; font-size: 2rem; font-weight: 700; color: #6366f1; }
-.crm-stat-label { font-size: 0.75rem; color: #6b7280; }
+.crm-header > span { font-size: 0.8rem; color: #64748b; margin-left: auto; font-weight: 500; }
+.crm-body { padding: 2rem; display: flex; gap: 2rem; justify-content: center; background: white; }
+.crm-stat { text-align: center; padding: 0 1rem; }
+.crm-stat-value { display: block; font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.crm-stat-label { font-size: 0.8rem; color: #64748b; font-weight: 500; }
 @media (max-width: 768px) { .cta-content { grid-template-columns: 1fr; text-align: center; } .cta-image { display: none; } }
 
 /* Use Cases */
 .use-cases-tabs { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
 .use-cases-tabs button { padding: 0.75rem 1.5rem; border-radius: 50px; border: 1px solid #e5e7eb; background: white; font-weight: 500; cursor: pointer; transition: all 0.2s; }
 .use-cases-tabs button.active { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border-color: transparent; box-shadow: 0 4px 15px rgba(99,102,241,0.3); }
-.use-case-panel { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; padding: 2rem; }
-.uc-image { position: relative; display: flex; align-items: center; justify-content: center; min-height: 200px; }
-.uc-image-bg { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2)); border-radius: 16px; }
-.uc-icon-big { position: relative; width: 80px; height: 80px; color: #6366f1; }
+.use-case-panel { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; padding: 2.5rem; background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.1)); }
+.uc-image { position: relative; display: flex; align-items: center; justify-content: center; min-height: 250px; overflow: hidden; border-radius: 16px; }
+.uc-image-bg { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.3)); border-radius: 16px; backdrop-filter: blur(10px); }
+.uc-img { position: relative; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; z-index: 1; animation: ucFadeIn 0.5s ease; box-shadow: 0 10px 30px rgba(99,102,241,0.2); }
+@keyframes ucFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 .uc-content h3 { font-size: 1.5rem; margin-bottom: 1rem; }
 .uc-content p { color: #6b7280; margin-bottom: 1rem; line-height: 1.7; }
 .uc-content blockquote { font-style: italic; color: #6b7280; border-left: 3px solid #6366f1; padding-left: 1rem; }
 @media (max-width: 768px) { .use-case-panel { grid-template-columns: 1fr; } .uc-image { min-height: 120px; } }
 
 /* Metrics */
-.metrics-section { background: linear-gradient(135deg, #1e1b4b, #312e81); color: white; }
-.metrics-section .section-title, .metrics-section .section-sub { color: white; }
+.metrics-section { background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); color: white; position: relative; overflow: hidden; }
+.metrics-section::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+.metrics-section .section-title, .metrics-section .section-sub { color: white; position: relative; }
+.metrics-title { font-size: clamp(2rem, 5vw, 3rem); }
 .metrics-section .section-sub { opacity: 0.8; }
-.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
-.metric { padding: 2rem; text-align: center; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
-.metric-value { display: block; font-size: 3rem; font-weight: 800; }
-.metric-value small { font-size: 1.5rem; opacity: 0.7; }
-.metric-label { font-size: 0.85rem; opacity: 0.8; margin-top: 0.5rem; display: block; }
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; position: relative; }
+.metric { padding: 2.5rem 2rem; text-align: center; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); transition: all 0.3s; }
+.metric:hover { transform: translateY(-5px); background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); }
+.metric-value { display: block; font-size: 3.5rem; font-weight: 800; background: linear-gradient(135deg, #fff, #c4b5fd); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.metric-value small { font-size: 1.5rem; opacity: 0.8; }
+.metric-label { font-size: 0.9rem; opacity: 0.85; margin-top: 0.75rem; display: block; }
 
 /* Support */
-.support-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
-.support-card { padding: 2rem; text-align: center; transition: all 0.3s; }
-.support-card:hover { transform: translateY(-5px); }
-.support-icon { width: 48px; height: 48px; color: #6366f1; margin: 0 auto 1rem; }
-.support-card h4 { font-size: 1rem; margin-bottom: 0.5rem; }
-.support-card p { font-size: 0.85rem; color: #6b7280; }
+.support-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+.support-card { padding: 2.5rem 2rem; text-align: center; transition: all 0.3s; background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.12)); border: 1px solid rgba(99,102,241,0.2); }
+.support-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(99,102,241,0.15); background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.18)); }
+.support-icon { width: 56px; height: 56px; color: #6366f1; margin: 0 auto 1.25rem; padding: 12px; background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.2)); border-radius: 16px; }
+.support-card h4 { font-size: 1.1rem; margin-bottom: 0.75rem; color: #1f2937; }
+.support-card p { font-size: 0.9rem; color: #6b7280; line-height: 1.6; }
 
 /* Footer */
-.footer { position: relative; padding: 4rem 2rem 2rem; overflow: hidden; z-index: 1; }
-.footer-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #1e1b4b, #312e81); z-index: 0; }
-.footer-orb { position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(99,102,241,0.3), transparent); border-radius: 50%; bottom: -200px; right: -100px; animation: float 15s ease-in-out infinite; }
+.footer { position: relative; padding: 5rem 2rem 2rem; overflow: hidden; z-index: 1; }
+.footer-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%); z-index: 0; }
+.footer-orb { position: absolute; width: 500px; height: 500px; background: radial-gradient(circle, rgba(139,92,246,0.4), transparent 70%); border-radius: 50%; bottom: -250px; right: -150px; animation: float 15s ease-in-out infinite; }
+.footer-orb::before { content: ''; position: absolute; width: 300px; height: 300px; background: radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%); border-radius: 50%; top: -100px; left: -200px; animation: float 12s ease-in-out infinite reverse; }
 .footer-content { position: relative; z-index: 1; }
-.footer-cta { text-align: center; padding: 3rem; margin-bottom: 3rem; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
-.footer-cta h2 { color: white; font-size: 1.5rem; margin-bottom: 1.5rem; }
-.footer-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 2rem; color: white; margin-bottom: 3rem; }
-.footer-logo { height: 60px; margin-bottom: 1rem; }
-.footer-brand p { opacity: 0.7; font-size: 0.9rem; }
-.footer-links h5 { font-size: 0.9rem; margin-bottom: 1rem; }
-.footer-links a { display: block; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.85rem; margin-bottom: 0.5rem; transition: color 0.2s; }
-.footer-links a:hover { color: white; }
-.footer-bottom { text-align: center; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); }
-.footer-bottom p { color: rgba(255,255,255,0.5); font-size: 0.8rem; }
+.footer-cta { text-align: center; padding: 4rem 3rem; margin-bottom: 4rem; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(20px); }
+.footer-cta h2 { color: white; font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 2rem; }
+.footer-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 3rem; color: white; margin-bottom: 3rem; }
+.footer-logo { height: 70px; margin-bottom: 1rem; animation: floatLogo 3s ease-in-out infinite; filter: drop-shadow(0 0 20px rgba(139,92,246,0.5)); }
+@keyframes floatLogo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.footer-brand p { opacity: 0.7; font-size: 0.95rem; }
+.footer-links h5 { font-size: 0.95rem; margin-bottom: 1.25rem; font-weight: 600; }
+.footer-links a { display: block; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.9rem; margin-bottom: 0.75rem; transition: all 0.2s; }
+.footer-links a:hover { color: white; transform: translateX(3px); }
+.footer-bottom { text-align: center; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+.footer-bottom p { color: rgba(255,255,255,0.6); font-size: 0.85rem; }
 @media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; text-align: center; } }
 </style>
