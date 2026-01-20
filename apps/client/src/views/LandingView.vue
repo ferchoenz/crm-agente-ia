@@ -267,6 +267,10 @@
     <footer class="footer" id="contact">
       <div class="footer-bg">
         <div class="footer-orb"></div>
+        <div class="footer-orb footer-orb-2"></div>
+        <div class="footer-particles">
+          <span v-for="n in 15" :key="n" class="particle"></span>
+        </div>
       </div>
       <div class="container footer-content">
         <div class="footer-cta glass-card">
@@ -283,11 +287,23 @@
             <img src="/logo-agentify.png" alt="Agentify" class="footer-logo" />
             <p>CRM con Inteligencia Artificial para equipos que quieren vender más.</p>
             <p class="footer-powered">Un producto de <strong>Kognia Studio</strong></p>
+            <div class="footer-social">
+              <a href="https://www.instagram.com/kognia.studio/" target="_blank" aria-label="Instagram">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+              </a>
+              <a href="https://www.facebook.com/kogniastudio" target="_blank" aria-label="Facebook">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+              </a>
+              <a href="https://www.linkedin.com/company/kognia-studio" target="_blank" aria-label="LinkedIn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+              </a>
+            </div>
           </div>
           <div class="footer-links">
             <h5>Producto</h5>
             <a href="#features">Funcionalidades</a>
             <a href="#use-cases">Casos de uso</a>
+            <a href="#support">Soporte</a>
           </div>
           <div class="footer-links">
             <h5>Legal</h5>
@@ -297,10 +313,17 @@
           <div class="footer-links">
             <h5>Contacto</h5>
             <a href="mailto:info@kogniastudio.com">info@kogniastudio.com</a>
+            <a href="https://kogniastudio.com" target="_blank">kogniastudio.com</a>
           </div>
         </div>
         <div class="footer-bottom">
-          <p>© {{ currentYear }} Agentify Chat. Todos los derechos reservados.</p>
+          <div class="footer-bottom-content">
+            <p>© {{ currentYear }} Agentify Chat. Todos los derechos reservados.</p>
+            <div class="footer-badges">
+              <span class="footer-badge">🇲🇽 Hecho en México</span>
+              <span class="footer-badge">🔒 SSL Secured</span>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
@@ -557,7 +580,7 @@ function getParticleStyle(i) {
 .feature-main { grid-row: span 2; padding: 2.5rem; display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5rem; }
 .feature-ai { background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.15)); border: 1px solid rgba(99,102,241,0.25); position: relative; overflow: hidden; transition: all 0.3s; }
 .feature-ai::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7); transform: scaleX(0); transition: transform 0.3s; }
-.feature-ai:hover { transform: translateY(-5px); box-shadow: 0 20px 45px rgba(99,102,241,0.18); }
+.feature-ai:hover { transform: translateY(-5px); box-shadow: 0 20px 45px rgba(99,102,241,0.18); background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(245,243,255,0.9)); }
 .feature-ai:hover::before { transform: scaleX(1); }
 .feature-main h3 { font-size: 1.6rem; margin-bottom: 0.5rem; font-weight: 700; background: linear-gradient(135deg, #4f46e5, #7c3aed, #a855f7); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .feature-main p { color: #6b7280; margin-bottom: 0; }
@@ -715,24 +738,49 @@ function getParticleStyle(i) {
 .footer-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%); z-index: 0; }
 .footer-orb { position: absolute; width: 500px; height: 500px; background: radial-gradient(circle, rgba(139,92,246,0.4), transparent 70%); border-radius: 50%; bottom: -250px; right: -150px; animation: float 15s ease-in-out infinite; }
 .footer-orb::before { content: ''; position: absolute; width: 300px; height: 300px; background: radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%); border-radius: 50%; top: -100px; left: -200px; animation: float 12s ease-in-out infinite reverse; }
+.footer-orb-2 { top: -200px; left: -100px; bottom: auto; right: auto; width: 400px; height: 400px; background: radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%); animation-duration: 18s; }
+.footer-particles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.footer-particles .particle { position: absolute; width: 4px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 50%; animation: particleFloat 10s infinite; }
+.footer-particles .particle:nth-child(1) { left: 5%; top: 20%; animation-delay: 0s; animation-duration: 12s; }
+.footer-particles .particle:nth-child(2) { left: 15%; top: 60%; animation-delay: 1s; animation-duration: 14s; }
+.footer-particles .particle:nth-child(3) { left: 25%; top: 40%; animation-delay: 2s; animation-duration: 11s; }
+.footer-particles .particle:nth-child(4) { left: 35%; top: 80%; animation-delay: 3s; animation-duration: 13s; }
+.footer-particles .particle:nth-child(5) { left: 45%; top: 30%; animation-delay: 4s; animation-duration: 15s; }
+.footer-particles .particle:nth-child(6) { left: 55%; top: 70%; animation-delay: 5s; animation-duration: 12s; }
+.footer-particles .particle:nth-child(7) { left: 65%; top: 50%; animation-delay: 6s; animation-duration: 14s; }
+.footer-particles .particle:nth-child(8) { left: 75%; top: 25%; animation-delay: 7s; animation-duration: 11s; }
+.footer-particles .particle:nth-child(9) { left: 85%; top: 65%; animation-delay: 8s; animation-duration: 13s; }
+.footer-particles .particle:nth-child(10) { left: 95%; top: 45%; animation-delay: 9s; animation-duration: 15s; }
+.footer-particles .particle:nth-child(11) { left: 10%; top: 85%; animation-delay: 0.5s; animation-duration: 12s; }
+.footer-particles .particle:nth-child(12) { left: 30%; top: 15%; animation-delay: 1.5s; animation-duration: 14s; }
+.footer-particles .particle:nth-child(13) { left: 50%; top: 90%; animation-delay: 2.5s; animation-duration: 11s; }
+.footer-particles .particle:nth-child(14) { left: 70%; top: 10%; animation-delay: 3.5s; animation-duration: 13s; }
+.footer-particles .particle:nth-child(15) { left: 90%; top: 75%; animation-delay: 4.5s; animation-duration: 15s; }
+@keyframes particleFloat { 0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; } 25% { transform: translateY(-20px) translateX(10px); opacity: 0.8; } 50% { transform: translateY(-40px) translateX(-5px); opacity: 0.5; } 75% { transform: translateY(-20px) translateX(-10px); opacity: 0.8; } }
 .footer-content { position: relative; z-index: 1; }
-.footer-cta { text-align: center; padding: 4rem 3rem; margin-bottom: 4rem; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(20px); border-radius: 24px; }
+.footer-cta { text-align: center; padding: 4rem 3rem; margin-bottom: 4rem; background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(20px); border-radius: 24px; }
 .footer-logo-frame { position: relative; width: 100px; height: 100px; margin: 0 auto 2rem; display: flex; align-items: center; justify-content: center; }
-.logo-glow { position: absolute; inset: -10px; background: radial-gradient(circle, rgba(139,92,246,0.6), transparent 70%); border-radius: 50%; animation: glowPulse 3s ease-in-out infinite; }
-@keyframes glowPulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } }
-.footer-cta-logo { position: relative; width: 80px; height: 80px; object-fit: contain; filter: drop-shadow(0 0 15px rgba(139,92,246,0.5)); }
-.footer-cta h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); margin-bottom: 1rem; background: linear-gradient(135deg, #fff 0%, #c4b5fd 50%, #a78bfa 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
-.footer-cta-sub { color: rgba(255,255,255,0.8); font-size: 1rem; margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+.logo-glow { position: absolute; inset: -15px; background: radial-gradient(circle, rgba(139,92,246,0.7), transparent 70%); border-radius: 50%; animation: glowPulse 3s ease-in-out infinite; }
+@keyframes glowPulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.15); } }
+.footer-cta-logo { position: relative; width: 80px; height: 80px; object-fit: contain; filter: drop-shadow(0 0 20px rgba(139,92,246,0.6)); }
+.footer-cta h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); margin-bottom: 1rem; background: linear-gradient(135deg, #fff 0%, #c4b5fd 50%, #a78bfa 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.footer-cta-sub { color: rgba(255,255,255,0.85); font-size: 1.05rem; margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.6; }
 .footer-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 3rem; color: white; margin-bottom: 3rem; }
-.footer-logo { height: 70px; margin-bottom: 1rem; animation: floatLogo 3s ease-in-out infinite; filter: drop-shadow(0 0 20px rgba(139,92,246,0.5)); }
-@keyframes floatLogo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-.footer-brand p { opacity: 0.8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 0.75rem; }
-.footer-powered { opacity: 0.6; font-size: 0.85rem; }
-.footer-links h5 { font-size: 0.95rem; margin-bottom: 1.25rem; font-weight: 600; }
+.footer-logo { height: 70px; margin-bottom: 1rem; animation: floatLogo 3s ease-in-out infinite; filter: drop-shadow(0 0 25px rgba(139,92,246,0.6)); }
+@keyframes floatLogo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.footer-brand p { opacity: 0.85; font-size: 0.95rem; line-height: 1.6; margin-bottom: 0.75rem; }
+.footer-powered { opacity: 0.7; font-size: 0.85rem; }
+.footer-social { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+.footer-social a { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; color: rgba(255,255,255,0.8); transition: all 0.3s; }
+.footer-social a:hover { background: linear-gradient(135deg, #6366f1, #8b5cf6); border-color: transparent; color: white; transform: translateY(-3px); box-shadow: 0 8px 20px rgba(99,102,241,0.4); }
+.footer-links h5 { font-size: 1rem; margin-bottom: 1.25rem; font-weight: 600; color: white; }
 .footer-links a { display: block; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.9rem; margin-bottom: 0.75rem; transition: all 0.2s; }
-.footer-links a:hover { color: white; transform: translateX(3px); }
-.footer-bottom { text-align: center; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
-.footer-bottom p { color: rgba(255,255,255,0.6); font-size: 0.85rem; }
-@media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; text-align: center; } }
+.footer-links a:hover { color: white; transform: translateX(5px); }
+.footer-bottom { text-align: center; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,0.15); }
+.footer-bottom-content { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.footer-bottom p { color: rgba(255,255,255,0.7); font-size: 0.9rem; }
+.footer-badges { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+.footer-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 50px; color: rgba(255,255,255,0.8); font-size: 0.8rem; }
+@media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr 1fr; } .footer-social { justify-content: center; } }
+@media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; text-align: center; } .footer-social { justify-content: center; } .footer-badges { flex-direction: column; } }
 </style>

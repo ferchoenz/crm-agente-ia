@@ -250,7 +250,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { 
   ArrowLeft as ArrowLeftIcon,
   Sparkles as SparklesIcon,
@@ -261,6 +261,10 @@ import {
   ShieldCheck as ShieldCheckIcon,
   FileText as FileTextIcon
 } from 'lucide-vue-next'
+
+onMounted(() => {
+  window.scrollTo({ top: 0, behavior: 'instant' })
+})
 
 const lastUpdated = computed(() => {
   return new Date().toLocaleDateString('es-MX', {
