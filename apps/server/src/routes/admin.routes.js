@@ -343,6 +343,125 @@ router.get('/conversations/:id', requireAgent, async (req, res) => {
     res.json({ conversation, messages });
 });
 
+// AI Copilot - Get suggestions for a conversation
+router.get('/conversations/:id/ai-suggestions', requireAgent, async (req, res) => {
+    try {
+        const { Conversation, Message, Customer } = await import('../models/index.js');
+        const { getModelRouter } = await import('../services/ai/model-router.service.js');
+
+        const conversation = await Conversation.findOne({
+            _id: req.params.id,
+            ...req.tenantFilter
+        }).populate('customer').populate('channel');
+
+        if (!conversation) {
+            return res.status(404).json({ error: 'Conversation not found' });
+        }
+
+        // Get last 10 messages for context
+        const messages = await Message.find({ conversation: conversation._id })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean();
+
+        messages.reverse();
+
+        // Build conversation context
+        const conversationText = messages.map(m =>
+            `${m.senderType === 'customer' ? 'Cliente' : 'Agente'}: ${m.content}`
+        ).join('\n');
+
+        const lastCustomerMessage = messages
+            .filter(m => m.senderType === 'customer')
+            .pop()?.content || '';
+
+        const customer = conversation.customer;
+
+        // Use L2 (Gemini) for fast suggestions
+        const router = await getModelRouter();
+
+        const prompt = `Eres un asistente de ventas analizando una conversación. 
+        
+CLIENTE: ${customer.name || 'Sin nombre'} | Etapa: ${customer.stage || 'new'} | Score: ${customer.leadScore || 0}
+
+CONVERSACIÓN RECIENTE:
+${conversationText}
+
+ÚLTIMO MENSAJE DEL CLIENTE: "${lastCustomerMessage}"
+
+Responde SOLO en JSON válido con esta estructura:
+{
+    "analysis": {
+        "intent": "greeting|inquiry|purchase|objection|appointment|support",
+        "sentiment": "positive|neutral|negative",
+        "urgency": "low|medium|high"
+    },
+    "suggestedResponses": [
+        "Primera respuesta sugerida corta y natural",
+        "Segunda alternativa de respuesta"
+    ],
+    "suggestedActions": [
+        {
+            "type": "change_stage",
+            "value": "contacted|qualified|proposal|negotiation|won",
+            "reason": "Por qué sugerir este cambio"
+        }
+    ]
+}
+
+REGLAS:
+- Máximo 2 respuestas sugeridas, máximo 2 acciones
+- Respuestas deben ser naturales en español mexicano, máximo 2 líneas
+- Solo sugiere cambiar etapa si tiene sentido (ej: si pidió cotización → proposal)
+- Si NO hay acción necesaria, devuelve suggestedActions vacío []`;
+
+        const response = await router.chat([
+            { role: 'user', content: prompt }
+        ], {
+            forceLevel: 'L2',
+            context: { organizationId: req.user.organizationId }
+        });
+
+        // Parse AI response
+        let suggestions = {
+            analysis: { intent: 'conversation', sentiment: 'neutral', urgency: 'low' },
+            suggestedResponses: [],
+            suggestedActions: []
+        };
+
+        try {
+            // Extract JSON from response
+            const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                suggestions = JSON.parse(jsonMatch[0]);
+            }
+        } catch (parseError) {
+            console.error('Failed to parse AI suggestions:', parseError);
+        }
+
+        res.json({
+            conversationId: conversation._id,
+            customer: {
+                name: customer.name,
+                stage: customer.stage,
+                leadScore: customer.leadScore
+            },
+            suggestions
+        });
+
+    } catch (error) {
+        console.error('AI Copilot error:', error);
+        res.status(500).json({
+            error: 'Error al generar sugerencias',
+            suggestions: {
+                analysis: { intent: 'unknown', sentiment: 'neutral', urgency: 'low' },
+                suggestedResponses: [],
+                suggestedActions: []
+            }
+        });
+    }
+});
+
 // Delete conversation (admin only)
 router.delete('/conversations/:id', requireAdmin, async (req, res) => {
     const { Conversation, Message } = await import('../models/index.js');

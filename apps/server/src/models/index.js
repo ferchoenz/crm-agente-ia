@@ -12,5 +12,6 @@ export { Notification } from './Notification.js';
 export { default as ActivityLog } from './ActivityLog.js';
 export { default as Announcement } from './Announcement.js';
 export { default as SystemSettings } from './SystemSettings.js';
+export { Appointment } from './Appointment.js';
 
 

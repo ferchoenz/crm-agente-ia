@@ -5,6 +5,7 @@ import adminRoutes from './admin.routes.js';
 import webhookRoutes from './webhook.routes.js';
 import integrationsRoutes from './integrations.routes.js';
 import remindersRoutes from './reminders.routes.js';
+import appointmentsRoutes from './appointments.routes.js';
 import { generalLimiter } from '../middleware/rateLimit.middleware.js';
 
 const router = Router();
@@ -23,6 +24,7 @@ router.use('/superadmin', superadminRoutes);
 router.use('/admin', adminRoutes);
 router.use('/integrations', integrationsRoutes);
 router.use('/reminders', remindersRoutes);
+router.use('/appointments', appointmentsRoutes);
 
 // API info
 router.get('/', (req, res) => {

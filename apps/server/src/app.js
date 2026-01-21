@@ -12,7 +12,7 @@ import { errorHandler } from './middleware/errorHandler.middleware.js';
 import routes from './routes/index.js';
 import { initializeSuperAdmin } from './services/setup.service.js';
 import { initializeSocket, getIO } from './services/socket.service.js';
-import { startReminderProcessor } from './services/reminder.service.js';
+import { startReminderProcessor, runAutoFollowUpsForAllOrgs } from './services/reminder.service.js';
 
 // Load environment variables
 dotenv.config();
@@ -97,6 +97,19 @@ async function startServer() {
 
     // Start reminder processor (checks every 60 seconds)
     startReminderProcessor(60000);
+
+    // Start auto follow-up job (runs every hour)
+    setInterval(async () => {
+      try {
+        await runAutoFollowUpsForAllOrgs();
+      } catch (error) {
+        logger.error('Auto follow-up job error:', error);
+      }
+    }, 60 * 60 * 1000); // Every hour
+
+    // Run once on startup after 2 minutes
+    setTimeout(() => runAutoFollowUpsForAllOrgs(), 2 * 60 * 1000);
+    logger.info('✅ Auto follow-up job scheduled (runs every hour)');
 
     httpServer.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);

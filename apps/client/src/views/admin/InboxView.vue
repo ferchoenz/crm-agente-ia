@@ -129,6 +129,17 @@
         </div>
 
         <div class="flex items-center gap-2">
+          <!-- AI Copilot Toggle -->
+          <button
+            v-if="!selectedConv.aiEnabled"
+            @click="toggleCopilot"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+            :class="showCopilot 
+              ? 'bg-violet-500 text-white' 
+              : 'bg-violet-100 text-violet-700 hover:bg-violet-200'"
+          >
+            ✨ Copiloto
+          </button>
           <!-- Toggle AI -->
           <button
             @click="toggleAI"
@@ -208,6 +219,20 @@
         </div>
       </div>
     </div>
+    
+    <!-- AI Copilot Panel (Right Sidebar) -->
+    <AICopilotPanel
+      v-if="showCopilot && selectedConv && !selectedConv.aiEnabled"
+      :suggestions="copilotSuggestions"
+      :loading="loadingCopilot"
+      :error="copilotError"
+      class="hidden lg:block w-80 flex-shrink-0"
+      @close="showCopilot = false"
+      @useResponse="useResponse"
+      @editResponse="editResponse"
+      @applyAction="applyAction"
+      @refresh="loadCopilotSuggestions"
+    />
   </div>
 </template>
 
@@ -225,8 +250,10 @@ import {
   MessageCircle as WhatsAppIcon,
   Send as MessengerIcon,
   Instagram as InstagramIcon,
-  ArrowLeft as ArrowLeftIcon
+  ArrowLeft as ArrowLeftIcon,
+  Sparkles as SparklesIcon
 } from 'lucide-vue-next'
+import AICopilotPanel from '@/components/inbox/AICopilotPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -241,6 +268,12 @@ const newMessage = ref('')
 const currentFilter = ref('all')
 const messagesContainer = ref(null)
 const showMobileChat = ref(false) // Controls mobile view: false = list, true = chat
+
+// AI Copilot state
+const showCopilot = ref(false)
+const loadingCopilot = ref(false)
+const copilotSuggestions = ref(null)
+const copilotError = ref(null)
 
 const filters = [
   { label: 'Todas', value: 'all' },
@@ -459,4 +492,62 @@ function formatTime(date) {
   if (!date) return ''
   return formatDistanceToNow(new Date(date), { addSuffix: true, locale: es })
 }
+
+// AI Copilot functions
+function toggleCopilot() {
+  showCopilot.value = !showCopilot.value
+  if (showCopilot.value && !copilotSuggestions.value) {
+    loadCopilotSuggestions()
+  }
+}
+
+async function loadCopilotSuggestions() {
+  if (!selectedConv.value) return
+  
+  loadingCopilot.value = true
+  copilotError.value = null
+  
+  try {
+    const response = await api.get(`/admin/conversations/${selectedConv.value._id}/ai-suggestions`)
+    copilotSuggestions.value = response.data.suggestions
+  } catch (error) {
+    console.error('Error loading copilot suggestions:', error)
+    copilotError.value = 'No se pudieron cargar sugerencias'
+  } finally {
+    loadingCopilot.value = false
+  }
+}
+
+function useResponse(response) {
+  newMessage.value = response
+  showCopilot.value = false
+}
+
+function editResponse(response) {
+  newMessage.value = response
+}
+
+async function applyAction(action) {
+  if (!selectedConv.value?.customer) return
+  
+  try {
+    if (action.type === 'change_stage') {
+      await api.patch(`/admin/customers/${selectedConv.value.customer._id}`, {
+        stage: action.value
+      })
+      // Refresh copilot suggestions
+      await loadCopilotSuggestions()
+    }
+  } catch (error) {
+    console.error('Error applying action:', error)
+  }
+}
+
+// Load copilot when conversation changes (if panel is open)
+watch(selectedConv, (newConv) => {
+  if (newConv && showCopilot.value) {
+    copilotSuggestions.value = null
+    loadCopilotSuggestions()
+  }
+})
 </script>

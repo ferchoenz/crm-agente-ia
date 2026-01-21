@@ -1,6 +1,7 @@
 import { Reminder } from '../models/Reminder.js';
-import { Customer, Organization } from '../models/index.js';
+import { Customer, Organization, Channel, Appointment } from '../models/index.js';
 import { createWhatsAppService } from './messaging/whatsapp.service.js';
+import { createMessengerService } from './messaging/messenger.service.js';
 import { emitToOrganization } from './socket.service.js';
 import { logger } from '../utils/logger.js';
 
@@ -271,46 +272,113 @@ export async function cancelAppointmentReminders(calendarEventId) {
 
 /**
  * Auto-generate follow-up reminders based on conversation inactivity
+ * Uses organization's followUpConfig settings
  */
 export async function generateAutoFollowUps(organizationId) {
     const { Conversation } = await import('../models/index.js');
 
-    // Find conversations with no activity in last 24h that are still open
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Get organization config
+    const org = await Organization.findById(organizationId);
+    if (!org || !org.followUpConfig?.enabled) {
+        return [];
+    }
 
+    const config = org.followUpConfig;
+    const hoursAgo = config.hoursAfterInactivity || 24;
+    const cutoff = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+
+    // Find stale conversations open, with last customer message (not AI)
     const staleConversations = await Conversation.find({
         organization: organizationId,
         status: 'open',
         lastMessageAt: { $lt: cutoff },
         aiEnabled: true
-    }).populate('customer');
+    }).populate('customer').populate('channel');
 
     const reminders = [];
 
     for (const conv of staleConversations) {
-        // Check if reminder already exists
-        const existing = await Reminder.findOne({
+        if (!conv.customer) continue;
+
+        // Check how many follow-ups already sent
+        const existingCount = await Reminder.countDocuments({
+            conversation: conv._id,
+            type: 'follow_up',
+            status: { $in: ['sent', 'scheduled'] }
+        });
+
+        if (existingCount >= (config.maxFollowUps || 3)) {
+            continue; // Max follow-ups reached
+        }
+
+        // Check if pending reminder exists
+        const pending = await Reminder.findOne({
             conversation: conv._id,
             type: 'follow_up',
             status: 'scheduled'
         });
 
-        if (!existing) {
-            const reminder = await createFollowUpReminder({
-                organizationId,
-                customerId: conv.customer._id,
-                conversationId: conv._id,
-                title: `Seguimiento: ${conv.customer.name || conv.customer.phone}`,
-                description: 'Conversación sin actividad por más de 24 horas',
-                scheduledAt: new Date(Date.now() + 30 * 60 * 1000), // In 30 min
-                message: `¡Hola {{name}}! 👋\n\n¿Pudiste revisar nuestra propuesta? Estamos aquí para resolver cualquier duda que tengas. ¿Te gustaría que te llamemos o prefieres continuar por aquí?`
-            });
+        if (pending) continue;
 
-            reminder.aiGenerated = true;
-            await reminder.save();
-            reminders.push(reminder);
-        }
+        // Build personalized message
+        let message = config.message || '¡Hola {name}! 👋 ¿Pudiste revisar la información? Estamos aquí para ayudarte.';
+        message = message.replace('{name}', conv.customer.name || 'amigo');
+
+        const reminder = await createFollowUpReminder({
+            organizationId,
+            customerId: conv.customer._id,
+            conversationId: conv._id,
+            title: `Seguimiento: ${conv.customer.name || conv.customer.phone}`,
+            description: `Conversación sin actividad por ${hoursAgo}+ horas`,
+            scheduledAt: new Date(Date.now() + 5 * 60 * 1000), // In 5 min
+            message
+        });
+
+        reminder.aiGenerated = true;
+        reminder.metadata = {
+            channel: conv.channel?.type || 'whatsapp',
+            channelId: conv.channel?._id,
+            followUpNumber: existingCount + 1
+        };
+        await reminder.save();
+        reminders.push(reminder);
+
+        logger.info(`Created follow-up #${existingCount + 1} for conversation ${conv._id}`);
     }
 
     return reminders;
 }
+
+/**
+ * Run auto follow-ups for ALL active organizations
+ * Called by periodic job
+ */
+export async function runAutoFollowUpsForAllOrgs() {
+    try {
+        // Find all active organizations with follow-up enabled
+        const orgs = await Organization.find({
+            active: true,
+            'followUpConfig.enabled': true
+        }).select('_id name');
+
+        logger.info(`Running auto follow-ups for ${orgs.length} organizations`);
+
+        let totalReminders = 0;
+
+        for (const org of orgs) {
+            try {
+                const reminders = await generateAutoFollowUps(org._id);
+                totalReminders += reminders.length;
+            } catch (error) {
+                logger.error(`Follow-up generation failed for org ${org._id}:`, error);
+            }
+        }
+
+        logger.info(`Auto follow-up job completed. Created ${totalReminders} reminders.`);
+        return totalReminders;
+    } catch (error) {
+        logger.error('Auto follow-up job error:', error);
+        return 0;
+    }
+}
+

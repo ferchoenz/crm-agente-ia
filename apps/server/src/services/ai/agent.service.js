@@ -1,22 +1,38 @@
 import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
-import { Organization, Message, Conversation, Product, Customer, AIUsage } from '../../models/index.js';
+import { Organization, Message, Conversation, Product, Customer, AIUsage, Appointment } from '../../models/index.js';
 import { getModelRouter } from './model-router.service.js';
 import { searchKnowledge } from '../knowledge.service.js';
+import { createAppointmentService, areAppointmentsEnabled } from '../integrations/appointment.service.js';
 import { logger } from '../../utils/logger.js';
 
 // SPIN Phase Prompts (with Onboarding)
 const SPIN_PHASE_PROMPTS = {
     ONBOARDING: `[👋 FASE: ONBOARDING - Conocer al Cliente]
-Tu objetivo es conocer al cliente de manera natural y cálida.
-1. **Saluda amablemente** y preséntate brevemente.
-2. **Pide su nombre**: "¿Con quién tengo el gusto de hablar?"
-3. **Cuando tengas su nombre**, agradece y pregunta en qué puedes ayudarle.
-4. Si el contexto lo permite, pide su email o teléfono diciendo: "Para darte un mejor seguimiento, ¿me compartes tu correo o número?"
+Tu objetivo es conocer al cliente de manera natural y establecer una conexión.
 
-IMPORTANTE:
-- Sé natural, NO hagas las preguntas como robot.
-- Cuando ya tengas nombre y el cliente mencione su necesidad, emite: [PHASE:SITUATION]
-- Si el cliente ya tiene prisa y dice qué necesita, pasa a SITUATION aunque no tengas todos los datos.`,
+**PASO 1 - SALUDO:**
+- Saluda cálidamente y preséntate brevemente como asesor de {empresa}
+
+**PASO 2 - OBTENER NOMBRE:**
+- Pregunta: "¿Con quién tengo el gusto de hablar?" o "¿Cuál es tu nombre?"
+- Cuando responda, úsalo naturalmente: "¡Mucho gusto, {nombre}!"
+
+**PASO 3 - OBTENER CONTACTO (opcional pero valioso):**
+- Si la conversación lo permite, pregunta UNO de estos (no ambos juntos):
+  - "¿Me compartes tu número de WhatsApp para darte mejor seguimiento?"
+  - "¿Tienes un correo donde pueda enviarte información?"
+- NO insistas si el cliente no quiere darlo
+
+**PASO 4 - TRANSICIÓN:**
+- Pregunta: "¿En qué te puedo ayudar?" o "¿Qué te trae por aquí?"
+- Cuando mencione su necesidad → emite: [PHASE:SITUATION]
+
+**REGLAS:**
+- Sé NATURAL, como una conversación real, no un interrogatorio
+- NO hagas todas las preguntas seguidas
+- Si el cliente dice qué necesita antes de dar su nombre, respóndele primero y luego pide el nombre sutilmente
+- Si tiene URGENCIA, pasa a SITUATION aunque no tengas todos los datos
+- Máximo 2-3 líneas por mensaje`,
     SITUATION: `[🎯 FASE SPIN: SITUACIÓN]
 Tu objetivo es entender el CONTEXTO del cliente.
 - Haz preguntas abiertas: "¿Cuéntame sobre tu negocio/situación actual?"
@@ -61,6 +77,7 @@ export class AIAgentService {
     constructor(organizationId) {
         this.organizationId = organizationId;
         this.router = null; // Will be initialized in initialize()
+        this.appointmentService = null; // Will be initialized if enabled
     }
 
     /**
@@ -71,11 +88,21 @@ export class AIAgentService {
         this.router = await getModelRouter();
 
         this.organization = await Organization.findById(this.organizationId)
-            .select('name email phone logo settings aiConfig')
+            .select('name email phone logo settings aiConfig appointmentsConfig')
             .lean();
 
         if (!this.organization) {
             throw new Error('Organization not found');
+        }
+
+        // Initialize appointment service if enabled
+        try {
+            if (await areAppointmentsEnabled(this.organizationId)) {
+                this.appointmentService = await createAppointmentService(this.organizationId);
+                logger.info(`Appointments enabled for org ${this.organizationId}`);
+            }
+        } catch (error) {
+            logger.warn(`Could not initialize appointment service: ${error.message}`);
         }
 
         logger.info(`AI Agent initialized for org ${this.organizationId}`);
@@ -380,6 +407,32 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
                 contextMessage += `\n\n[INFORMACIÓN DEL NEGOCIO (Referencia, NO citar textualmente):\n${knowledgeContext}\n]`;
             }
 
+            // APPOINTMENTS: Handle appointment intent
+            let appointmentData = null;
+            if (intent === 'appointment' && this.appointmentService?.isEnabled()) {
+                try {
+                    const availableDays = await this.appointmentService.getAvailableDays(5);
+                    const slotsInfo = this.appointmentService.formatSlotsForAI(availableDays);
+
+                    contextMessage += `\n\n[📅 CITAS DISPONIBLES:
+${slotsInfo}
+
+INSTRUCCIONES PARA AGENDAR:
+1. Muestra los horarios disponibles al cliente de forma amigable
+2. Pregunta qué día y hora le conviene
+3. Cuando el cliente confirme un horario específico, usa el formato: [BOOK:YYYY-MM-DD HH:MM]
+   Ejemplo: Si dice "el martes a las 10am" y hoy es lunes 21 de enero, responde con [BOOK:2026-01-22 10:00]
+4. Confirma la cita al cliente con la fecha y hora exacta
+
+IMPORTANTE: 
+- Solo ofrece horarios que aparezcan en la lista de disponibles
+- Si el horario solicitado no está disponible, ofrece alternativas
+- Duración de cada cita: ${this.organization.appointmentsConfig?.defaultDuration || 60} minutos]`;
+                } catch (error) {
+                    logger.warn('Could not get appointment slots:', error.message);
+                }
+            }
+
             // Handle human handoff
             if (intent === 'human_handoff') {
                 return {
@@ -434,6 +487,73 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
                 response.content = response.content.replace(/\[PHASE:\w+\]/g, '').trim();
             }
 
+            // Detect and process appointment booking from AI response
+            const bookMatch = response.content.match(/\[BOOK:(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\]/);
+            if (bookMatch && this.appointmentService?.isEnabled() && customerId) {
+                try {
+                    const [_, dateStr, timeStr] = bookMatch;
+                    const startTime = new Date(`${dateStr}T${timeStr}:00`);
+
+                    // Get conversation to determine channel
+                    const conv = await Conversation.findById(conversationId)
+                        .select('channel channelId')
+                        .populate('channel', 'type');
+
+                    // Create the appointment
+                    const appointment = await this.appointmentService.createAppointment({
+                        customerId,
+                        conversationId,
+                        startTime,
+                        channel: conv?.channel?.type || 'whatsapp',
+                        channelId: conv?.channelId
+                    });
+
+                    // Get formatted confirmation message
+                    const config = this.organization.appointmentsConfig || {};
+                    let confirmationMsg = config.confirmationMessage ||
+                        '✅ ¡Tu cita ha sido agendada! Te esperamos el {date} a las {time}.';
+
+                    const formattedDate = startTime.toLocaleDateString('es-MX', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long'
+                    });
+                    const formattedTime = startTime.toLocaleTimeString('es-MX', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+
+                    confirmationMsg = confirmationMsg
+                        .replace('{date}', formattedDate)
+                        .replace('{time}', formattedTime);
+
+                    // Replace the booking tag with confirmation
+                    response.content = response.content
+                        .replace(/\[BOOK:\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\]/g, '')
+                        .trim();
+
+                    // Append confirmation if not already in the message
+                    if (!response.content.includes('agendada') && !response.content.includes('confirmada')) {
+                        response.content += '\n\n' + confirmationMsg;
+                    }
+
+                    appointmentData = {
+                        id: appointment._id,
+                        startTime: appointment.startTime,
+                        endTime: appointment.endTime
+                    };
+
+                    logger.info(`Appointment booked via AI: ${appointment._id} for ${dateStr} ${timeStr}`);
+                } catch (error) {
+                    logger.error('Error creating appointment from AI:', error);
+                    // Remove the booking tag even if failed
+                    response.content = response.content
+                        .replace(/\[BOOK:\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\]/g, '')
+                        .trim();
+                }
+            }
+
             // Extract customer data during ONBOARDING phase
             if (currentPhase === 'ONBOARDING' && customerId) {
                 await this.extractAndSaveCustomerData(customerId, customerMessage);
@@ -446,7 +566,8 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
                 provider: response.provider,
                 shouldHandoff: false,
                 processingTime,
-                salesPhase: phaseMatch ? phaseMatch[1] : currentPhase
+                salesPhase: phaseMatch ? phaseMatch[1] : currentPhase,
+                appointment: appointmentData
             };
 
         } catch (error) {
@@ -457,37 +578,92 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
 
     /**
      * Extract name, email, phone from customer message and update database
+     * Enhanced with more patterns and normalization
      */
     async extractAndSaveCustomerData(customerId, message) {
         try {
             const updates = {};
+            const messageLower = message.toLowerCase();
 
-            // Extract email
-            const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-            if (emailMatch) {
-                updates.email = emailMatch[0].toLowerCase();
-                logger.info(`Extracted email: ${updates.email}`);
-            }
-
-            // Extract phone (various formats)
-            const phoneMatch = message.match(/(?:\+?52|0)?[\s.-]?(?:\d{2,3}[\s.-]?)?\d{3,4}[\s.-]?\d{4}/);
-            if (phoneMatch) {
-                updates.phone = phoneMatch[0].replace(/[\s.-]/g, '');
-                logger.info(`Extracted phone: ${updates.phone}`);
-            }
-
-            // Extract name (simple heuristic: "me llamo X", "soy X", or just a short message with name)
-            const namePatterns = [
-                /(?:me llamo|soy|mi nombre es)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/i,
-                /^([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)\s*$/
+            // Extract email (improved pattern)
+            const emailPatterns = [
+                /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+                /correo[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+                /email[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+                /mail[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i
             ];
+
+            for (const pattern of emailPatterns) {
+                const emailMatch = message.match(pattern);
+                if (emailMatch) {
+                    const email = (emailMatch[1] || emailMatch[0]).toLowerCase();
+                    if (email.includes('@') && email.includes('.')) {
+                        updates.email = email;
+                        logger.info(`Extracted email: ${updates.email}`);
+                        break;
+                    }
+                }
+            }
+
+            // Extract phone (multiple formats: MX, international, with/without +)
+            const phonePatterns = [
+                /(?:tel[eéfono]*|número|celular|whatsapp|cel|num)[:\s]*([+]?\d[\d\s.-]{8,15})/i,
+                /([+]?52[\s.-]?)?(?:1[\s.-]?)?\d{2,3}[\s.-]?\d{3,4}[\s.-]?\d{4}/,
+                /([+]?\d{1,3}[\s.-]?)?\(?\d{2,3}\)?[\s.-]?\d{3,4}[\s.-]?\d{4}/
+            ];
+
+            for (const pattern of phonePatterns) {
+                const phoneMatch = message.match(pattern);
+                if (phoneMatch) {
+                    let phone = (phoneMatch[1] || phoneMatch[0]).replace(/[\s.()-]/g, '');
+                    // Normalize: ensure it has at least 10 digits
+                    const digits = phone.replace(/\D/g, '');
+                    if (digits.length >= 10) {
+                        // Add country code if missing
+                        if (!phone.startsWith('+') && digits.length === 10) {
+                            phone = '+52' + digits;
+                        } else if (!phone.startsWith('+')) {
+                            phone = '+' + digits;
+                        }
+                        updates.phone = phone;
+                        logger.info(`Extracted phone: ${updates.phone}`);
+                        break;
+                    }
+                }
+            }
+
+            // Extract name (enhanced patterns)
+            const namePatterns = [
+                // "Me llamo Juan", "Soy María", "Mi nombre es Carlos"
+                /(?:me llamo|soy|mi nombre es|me dicen)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,2})/i,
+                // "Juan García" (just a name as response)
+                /^\s*([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,2})\s*[,.!]*\s*$/,
+                // "Hola, soy Juan" with comma
+                /(?:hola|buenas|buenos días|buenas tardes)[,\s]+(?:soy|me llamo)?\s*([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/i
+            ];
+
+            // Common words to exclude as names
+            const excludeWords = ['hola', 'buenas', 'buenos', 'dias', 'tardes', 'noches', 'gracias', 'por', 'favor', 'si', 'no', 'ok', 'bien', 'claro'];
 
             for (const pattern of namePatterns) {
                 const nameMatch = message.match(pattern);
-                if (nameMatch && nameMatch[1] && nameMatch[1].length > 2 && nameMatch[1].length < 50) {
-                    updates.name = nameMatch[1].trim();
-                    logger.info(`Extracted name: ${updates.name}`);
-                    break;
+                if (nameMatch && nameMatch[1]) {
+                    const name = nameMatch[1].trim();
+                    const nameLower = name.toLowerCase();
+
+                    // Validate name
+                    if (name.length > 2 &&
+                        name.length < 50 &&
+                        !excludeWords.includes(nameLower) &&
+                        !/\d/.test(name)) { // No numbers in name
+
+                        // Capitalize properly
+                        updates.name = name.split(' ')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                            .join(' ');
+                        logger.info(`Extracted name: ${updates.name}`);
+                        break;
+                    }
                 }
             }
 

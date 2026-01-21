@@ -198,6 +198,43 @@
             @blur="saveNotes"
           ></textarea>
         </div>
+        
+        <!-- Appointments History -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-slate-800">Historial de Citas</h3>
+            <RouterLink to="/appointments" class="text-sm text-primary-600 hover:text-primary-700">
+              Ver todas
+            </RouterLink>
+          </div>
+          
+          <div v-if="appointments.length" class="space-y-3">
+            <div 
+              v-for="apt in appointments" 
+              :key="apt._id"
+              class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
+            >
+              <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <CalendarDaysIcon class="w-5 h-5 text-primary-600" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-slate-800">{{ apt.title }}</div>
+                <div class="text-xs text-slate-500">{{ formatAppointmentDate(apt.startTime) }}</div>
+              </div>
+              <span 
+                class="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
+                :class="getAppointmentStatusClass(apt.status)"
+              >
+                {{ getAppointmentStatusLabel(apt.status) }}
+              </span>
+            </div>
+          </div>
+          
+          <div v-else class="text-center py-6">
+            <CalendarDaysIcon class="w-10 h-10 mx-auto text-slate-300 mb-2" />
+            <p class="text-sm text-slate-400">No hay citas registradas</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -212,19 +249,22 @@ import api from '@/services/api'
 import {
   ArrowLeft as ArrowLeftIcon,
   Pencil as EditIcon,
-  MessageSquare as MessageIcon
+  MessageSquare as MessageIcon,
+  CalendarDays as CalendarDaysIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()
 
 const customer = ref({})
 const conversations = ref([])
+const appointments = ref([])
 const editMode = ref(false)
 const newTag = ref('')
 const notes = ref('')
 
 onMounted(async () => {
   await loadCustomer()
+  await loadAppointments()
 })
 
 async function loadCustomer() {
@@ -296,5 +336,47 @@ function getScoreLabel(score) {
 function formatDate(date) {
   if (!date) return '-'
   return formatDistanceToNow(new Date(date), { addSuffix: true, locale: es })
+}
+
+async function loadAppointments() {
+  try {
+    const response = await api.get(`/appointments?customer=${route.params.id}&limit=5`)
+    appointments.value = response.data.appointments || []
+  } catch (error) {
+    console.error('Failed to load appointments:', error)
+  }
+}
+
+function formatAppointmentDate(date) {
+  if (!date) return '-'
+  return new Date(date).toLocaleDateString('es-MX', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function getAppointmentStatusClass(status) {
+  const classes = {
+    scheduled: 'bg-amber-100 text-amber-700',
+    confirmed: 'bg-emerald-100 text-emerald-700',
+    cancelled: 'bg-rose-100 text-rose-700',
+    completed: 'bg-blue-100 text-blue-700',
+    no_show: 'bg-slate-100 text-slate-700'
+  }
+  return classes[status] || 'bg-slate-100 text-slate-700'
+}
+
+function getAppointmentStatusLabel(status) {
+  const labels = {
+    scheduled: 'Pendiente',
+    confirmed: 'Confirmada',
+    cancelled: 'Cancelada',
+    completed: 'Completada',
+    no_show: 'No asistió'
+  }
+  return labels[status] || status
 }
 </script>

@@ -95,6 +95,56 @@ const organizationSchema = new mongoose.Schema({
         }
     },
 
+    // Appointments Configuration
+    appointmentsConfig: {
+        enabled: { type: Boolean, default: false },
+        defaultDuration: { type: Number, default: 60 }, // minutes
+        bufferMinutes: { type: Number, default: 15 }, // time between appointments
+        maxAdvanceDays: { type: Number, default: 30 }, // max days in advance to book
+        calendarId: { type: String, default: 'primary' },
+
+        // Business hours for appointments (can differ from general business hours)
+        businessHours: {
+            monday: { start: { type: String, default: '09:00' }, end: { type: String, default: '18:00' }, enabled: { type: Boolean, default: true } },
+            tuesday: { start: { type: String, default: '09:00' }, end: { type: String, default: '18:00' }, enabled: { type: Boolean, default: true } },
+            wednesday: { start: { type: String, default: '09:00' }, end: { type: String, default: '18:00' }, enabled: { type: Boolean, default: true } },
+            thursday: { start: { type: String, default: '09:00' }, end: { type: String, default: '18:00' }, enabled: { type: Boolean, default: true } },
+            friday: { start: { type: String, default: '09:00' }, end: { type: String, default: '18:00' }, enabled: { type: Boolean, default: true } },
+            saturday: { start: { type: String, default: '09:00' }, end: { type: String, default: '14:00' }, enabled: { type: Boolean, default: false } },
+            sunday: { start: { type: String, default: '09:00' }, end: { type: String, default: '14:00' }, enabled: { type: Boolean, default: false } }
+        },
+
+        // Reminder settings
+        reminderHoursBefore: { type: [Number], default: [24, 1] }, // 24h and 1h before
+
+        // Custom messages
+        confirmationMessage: {
+            type: String,
+            default: '✅ ¡Tu cita ha sido agendada! Te esperamos el {date} a las {time}.'
+        },
+        reminderMessage: {
+            type: String,
+            default: '📅 Recordatorio: Tienes una cita programada para {date} a las {time}.'
+        }
+    },
+
+    // Follow-up Configuration (for automatic re-engagement)
+    followUpConfig: {
+        enabled: { type: Boolean, default: true },
+        hoursAfterInactivity: { type: Number, default: 24 }, // Hours before sending follow-up
+        maxFollowUps: { type: Number, default: 3 }, // Max follow-ups per conversation
+        message: {
+            type: String,
+            default: '¡Hola {name}! 👋 ¿Pudiste revisar la información que te enviamos? Estamos aquí para resolver cualquier duda que tengas.'
+        },
+        // Which channels to send follow-ups
+        channels: {
+            whatsapp: { type: Boolean, default: true },
+            messenger: { type: Boolean, default: true },
+            instagram: { type: Boolean, default: true }
+        }
+    },
+
     // Encrypted API Keys (stored encrypted in DB)
     apiKeys: {
         openai: {

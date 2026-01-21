@@ -151,6 +151,16 @@ const routes = [
                 path: 'settings/knowledge',
                 name: 'settings-knowledge',
                 component: () => import('@/views/admin/SettingsKnowledgeView.vue')
+            },
+            {
+                path: 'appointments',
+                name: 'appointments',
+                component: () => import('@/views/admin/AppointmentsView.vue')
+            },
+            {
+                path: 'settings/appointments',
+                name: 'settings-appointments',
+                component: () => import('@/views/admin/SettingsAppointmentsView.vue')
             }
         ]
     },

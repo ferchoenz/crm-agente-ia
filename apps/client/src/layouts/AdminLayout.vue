@@ -297,7 +297,8 @@ import {
   Unlock as UnlockIcon,
   UserPlus as UserPlusIcon,
   AlertCircle as AlertCircleIcon,
-  Loader as LoaderIcon
+  Loader as LoaderIcon,
+  CalendarDays as CalendarDaysIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -327,7 +328,8 @@ const navigation = computed(() => [
   { to: '/inbox', label: 'Bandeja de entrada', icon: InboxIcon, badge: unreadCount.value > 0 ? unreadCount.value : null },
   { to: '/customers', label: 'Clientes', icon: UsersIcon },
   { to: '/products', label: 'Productos', icon: PackageIcon },
-  { to: '/pipeline', label: 'Pipeline', icon: PipelineIcon }
+  { to: '/pipeline', label: 'Pipeline', icon: PipelineIcon },
+  { to: '/appointments', label: 'Citas', icon: CalendarDaysIcon }
 ])
 
 const settingsNav = [
@@ -335,6 +337,7 @@ const settingsNav = [
   { to: '/settings/ai', label: 'Agente IA', icon: AIIcon },
   { to: '/settings/knowledge', label: 'Base de Conocimiento', icon: BookOpenIcon },
   { to: '/settings/channels', label: 'Canales', icon: ChannelsIcon },
+  { to: '/settings/appointments', label: 'Citas', icon: CalendarDaysIcon },
   { to: '/settings/team', label: 'Equipo', icon: TeamIcon }
 ]
 

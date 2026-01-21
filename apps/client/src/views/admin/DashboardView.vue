@@ -143,6 +143,43 @@
             Ver pipeline completo
           </RouterLink>
         </div>
+        
+        <!-- Today's Appointments Widget -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Citas de hoy</h3>
+            <RouterLink to="/appointments" class="text-sm text-primary-600 hover:text-primary-700">
+              Ver todas
+            </RouterLink>
+          </div>
+          
+          <div v-if="todayAppointments.length === 0" class="text-center py-6">
+            <CalendarDaysIcon class="w-10 h-10 mx-auto text-surface-300 mb-2" />
+            <p class="text-sm text-surface-500">No hay citas para hoy</p>
+          </div>
+          
+          <div v-else class="space-y-3">
+            <div 
+              v-for="apt in todayAppointments" 
+              :key="apt._id"
+              class="flex items-center gap-3 p-3 bg-surface-50 rounded-xl"
+            >
+              <div class="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                <span class="text-sm font-bold text-primary-600">{{ formatAptTime(apt.startTime) }}</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">{{ apt.title }}</p>
+                <p class="text-xs text-surface-500 truncate">{{ apt.customer?.name || 'Sin cliente' }}</p>
+              </div>
+              <span 
+                class="px-2 py-0.5 rounded-full text-xs font-medium"
+                :class="apt.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+              >
+                {{ apt.status === 'confirmed' ? '✓' : '⏳' }}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -192,6 +229,7 @@ import {
   Users as UsersIcon,
   Zap as ZapIcon,
   Calendar as CalendarIcon,
+  CalendarDays as CalendarDaysIcon,
   ArrowRight as ArrowRightIcon,
   ChevronRight as ChevronRightIcon,
   Inbox as InboxIcon,
@@ -226,6 +264,7 @@ const recentConversations = ref([])
 const loadingConversations = ref(true)
 const chartPeriod = ref('7')
 const chartData = ref([])
+const todayAppointments = ref([])
 
 const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -276,7 +315,8 @@ onMounted(async () => {
   await Promise.all([
     loadDashboardStats(),
     loadRecentConversations(),
-    loadPipelineStats()
+    loadPipelineStats(),
+    loadTodayAppointments()
   ])
   generateChartData()
 })
@@ -360,5 +400,19 @@ function generateChartData() {
 function formatTime(date) {
   if (!date) return ''
   return formatDistanceToNow(new Date(date), { addSuffix: true, locale: es })
+}
+
+async function loadTodayAppointments() {
+  try {
+    const response = await api.get('/appointments/today')
+    todayAppointments.value = response.data.appointments || []
+  } catch (error) {
+    console.error('Failed to load today appointments:', error)
+  }
+}
+
+function formatAptTime(date) {
+  if (!date) return ''
+  return new Date(date).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
 </script>
