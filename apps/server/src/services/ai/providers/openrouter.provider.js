@@ -89,7 +89,7 @@ export class OpenRouterProvider {
 }
 
 /**
- * Factory function for L3 (DeepSeek V3)
+ * Factory function for L3 (GPT-4.1 - Complex reasoning)
  */
 export function createOpenRouterProvider() {
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -97,12 +97,13 @@ export function createOpenRouterProvider() {
         logger.warn('OPENROUTER_API_KEY not configured');
         return null;
     }
-    const model = process.env.AI_L3_MODEL || 'deepseek/deepseek-chat';
-    return new OpenRouterProvider(apiKey, model, 'deepseek');
+    // GPT-4.1 for complex reasoning, tool use, and calculations
+    const model = process.env.AI_L3_MODEL || 'openai/gpt-4.1';
+    return new OpenRouterProvider(apiKey, model, 'gpt-4.1');
 }
 
 /**
- * Factory function for L2 (Gemini 2.0 Flash 001)
+ * Factory function for L2 (GPT-4o Mini - Balanced responses)
  */
 export function createGeminiProvider() {
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -110,6 +111,8 @@ export function createGeminiProvider() {
         logger.warn('OPENROUTER_API_KEY not configured');
         return null;
     }
-    const model = process.env.AI_L2_MODEL || 'google/gemini-2.0-flash-001';
-    return new OpenRouterProvider(apiKey, model, 'gemini');
+    // GPT-4o Mini for balanced conversational responses
+    const model = process.env.AI_L2_MODEL || 'openai/gpt-4o-mini';
+    return new OpenRouterProvider(apiKey, model, 'gpt-4o-mini');
 }
+

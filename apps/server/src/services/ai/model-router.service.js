@@ -11,8 +11,8 @@ export class ModelRouterService {
     constructor() {
         this.providers = {
             L1: null, // Groq - Fast, simple queries
-            L2: null, // Gemini 2.0 Flash - Contextual, long context
-            L3: null  // DeepSeek - Complex reasoning
+            L2: null, // GPT-4o Mini - Balanced responses
+            L3: null  // GPT-4.1 - Complex reasoning
         };
 
         this.initialized = false;
@@ -29,16 +29,16 @@ export class ModelRouterService {
                 logger.info('✓ Groq provider initialized (L1)');
             }
 
-            // L2: Gemini 2.0 Flash for contextual queries (via OpenRouter)
+            // L2: GPT-4o Mini for balanced responses (via OpenRouter)
             this.providers.L2 = createGeminiProvider();
             if (this.providers.L2) {
-                logger.info('✓ Gemini 2.0 Flash provider initialized (L2)');
+                logger.info('✓ GPT-4o Mini provider initialized (L2)');
             }
 
-            // L3: DeepSeek for complex reasoning
+            // L3: GPT-4.1 for complex reasoning (via OpenRouter)
             this.providers.L3 = createOpenRouterProvider();
             if (this.providers.L3) {
-                logger.info('✓ DeepSeek/OpenRouter provider initialized (L3)');
+                logger.info('✓ GPT-4.1 provider initialized (L3)');
             }
 
             // Check at least one provider is available
@@ -218,8 +218,8 @@ export class ModelRouterService {
     getProviderName(level) {
         const names = {
             L1: 'groq',
-            L2: 'gemini',
-            L3: 'deepseek'
+            L2: 'gpt-4o-mini',
+            L3: 'gpt-4.1'
         };
         return names[level] || 'unknown';
     }
@@ -230,8 +230,8 @@ export class ModelRouterService {
     getStatus() {
         return {
             L1: { available: !!this.providers.L1, name: 'Groq (Llama 3.1 8B)' },
-            L2: { available: !!this.providers.L2, name: 'Gemini 2.0 Flash (OpenRouter)' },
-            L3: { available: !!this.providers.L3, name: 'DeepSeek V3 (OpenRouter)' }
+            L2: { available: !!this.providers.L2, name: 'GPT-4o Mini (OpenRouter)' },
+            L3: { available: !!this.providers.L3, name: 'GPT-4.1 (OpenRouter)' }
         };
     }
 }
