@@ -47,8 +47,27 @@
             <span class="px-2.5 py-1 rounded-full text-xs font-medium" :class="channel.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
               {{ channel.status === 'active' ? 'Conectado' : 'Desconectado' }}
             </span>
+            <button 
+              @click="subscribeWhatsAppWebhooks(channel)" 
+              class="p-2 hover:bg-emerald-100 rounded-lg transition-colors group relative"
+              title="Activar recepción de mensajes"
+              :disabled="subscribingWebhook === channel._id"
+            >
+              <BellIcon v-if="subscribingWebhook !== channel._id" class="w-4 h-4 text-emerald-600" />
+              <LoaderIcon v-else class="w-4 h-4 text-emerald-600 animate-spin" />
+              <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
+                Activar webhooks
+              </span>
+            </button>
             <button @click="toggleChannelSettings(channel, 'whatsapp')" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
               <SettingsIcon class="w-4 h-4 text-slate-500" />
+            </button>
+            <button 
+              @click="disconnectChannel(channel._id, 'whatsapp')" 
+              class="p-2 hover:bg-rose-100 rounded-lg transition-colors"
+              title="Desconectar canal"
+            >
+              <XIcon class="w-4 h-4 text-rose-500" />
             </button>
           </div>
         </div>
@@ -439,7 +458,9 @@ import {
   Instagram as InstagramIcon,
   X as XIcon,
   RefreshCw as RefreshIcon,
-  AlertTriangle as AlertTriangleIcon
+  AlertTriangle as AlertTriangleIcon,
+  Bell as BellIcon,
+  Loader2 as LoaderIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -457,6 +478,7 @@ const connectingInstagram = ref(false)
 const loadingCalendar = ref(false)
 const savingSettings = ref(false)
 const savingWhatsApp = ref(false)
+const subscribingWebhook = ref(null) // Channel ID being subscribed
 
 // Modals
 const showPageSelector = ref(false)
@@ -669,6 +691,28 @@ async function handleWhatsAppSuccess(channel) {
 function handleWhatsAppError(error) {
   console.error('WhatsApp connection error:', error)
   // You can show a toast notification here
+}
+
+// Subscribe WhatsApp channel to webhooks
+async function subscribeWhatsAppWebhooks(channel) {
+  if (subscribingWebhook.value) return
+  
+  subscribingWebhook.value = channel._id
+  
+  try {
+    const response = await api.post(`/integrations/whatsapp/channels/${channel._id}/subscribe-webhooks`)
+    
+    if (response.data.success) {
+      alert('✅ Webhooks activados correctamente. Ahora puedes recibir mensajes.')
+    } else {
+      alert('❌ Error al activar webhooks: ' + (response.data.error || 'Error desconocido'))
+    }
+  } catch (error) {
+    console.error('Failed to subscribe to webhooks:', error)
+    alert('❌ Error al activar webhooks: ' + (error.response?.data?.error || error.message))
+  } finally {
+    subscribingWebhook.value = null
+  }
 }
 
 // Manual connection (advanced option)
