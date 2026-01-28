@@ -218,15 +218,11 @@ function launchEmbeddedSignup() {
     if (response.authResponse) {
       const authResponse = response.authResponse
       
-      // Extract granted scopes and data
-      const grantedScopes = authResponse.grantedScopes || ''
+      // Log for debugging - when using config_id, grantedScopes may not be populated
+      console.log('FB.login authResponse:', authResponse)
       
-      // Check if user granted whatsapp_business_management
-      if (!grantedScopes.includes('whatsapp_business_management')) {
-        loading.value = false
-        error.value = 'Debes otorgar permisos de WhatsApp Business para continuar'
-        return
-      }
+      // Note: When using config_id, permissions are pre-configured in the Configuration
+      // grantedScopes may be empty or undefined, but the token will have the permissions
 
       loadingMessage.value = 'Procesando datos de WhatsApp...'
 
