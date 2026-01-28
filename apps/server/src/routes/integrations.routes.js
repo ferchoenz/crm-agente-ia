@@ -184,6 +184,7 @@ router.post('/whatsapp/embedded-signup/callback', requireAdmin, async (req, res)
 /**
  * Discover WABAs associated with the user's access token
  * This is used when the session info doesn't return the WABA ID
+ * Uses multiple methods to find WABAs shared via Embedded Signup
  */
 router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
     try {
@@ -193,92 +194,176 @@ router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Access token is required' });
         }
 
-        // First, get the user's business accounts
         const axios = (await import('axios')).default;
+        const allWabas = [];
+        const seenIds = new Set();
 
-        // Get debug info about the token to find associated business
-        const debugResponse = await axios.get(`https://graph.facebook.com/v18.0/debug_token`, {
-            params: {
-                input_token: accessToken,
-                access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.META_APP_SECRET}`
+        // Helper to add unique WABAs
+        const addWaba = (waba) => {
+            if (waba.id && !seenIds.has(waba.id)) {
+                seenIds.add(waba.id);
+                allWabas.push(waba);
             }
-        });
+        };
 
-        logger.info('Token debug info:', debugResponse.data);
-
-        // Try to get WABAs from the user's accessible businesses
-        // Method 1: Get from shared WABAs endpoint
+        // Get debug info about the token to understand its scope
         try {
-            const wabasResponse = await axios.get(`https://graph.facebook.com/v18.0/me/businesses`, {
+            const debugResponse = await axios.get(`https://graph.facebook.com/v21.0/debug_token`, {
                 params: {
-                    fields: 'id,name,owned_whatsapp_business_accounts{id,name,account_review_status}',
+                    input_token: accessToken,
+                    access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.META_APP_SECRET}`
+                }
+            });
+            logger.info('Token debug info:', JSON.stringify(debugResponse.data, null, 2));
+        } catch (debugError) {
+            logger.warn('Token debug failed:', debugError.message);
+        }
+
+        // METHOD 1: Get WABAs shared with our app via Embedded Signup
+        // This uses the app-scoped token to find all WABAs that have been shared
+        try {
+            logger.info('Method 1: Checking app shared WABAs...');
+            const appToken = `${process.env.FACEBOOK_APP_ID}|${process.env.META_APP_SECRET}`;
+            const sharedWabasResponse = await axios.get(
+                `https://graph.facebook.com/v21.0/${process.env.FACEBOOK_APP_ID}/whatsapp_business_accounts`,
+                {
+                    params: {
+                        fields: 'id,name,account_review_status,owner_business_info{id,name}',
+                        access_token: appToken
+                    }
+                }
+            );
+
+            logger.info('App shared WABAs response:', JSON.stringify(sharedWabasResponse.data, null, 2));
+
+            if (sharedWabasResponse.data.data) {
+                for (const waba of sharedWabasResponse.data.data) {
+                    addWaba({
+                        id: waba.id,
+                        name: waba.name || 'WhatsApp Business Account',
+                        status: waba.account_review_status,
+                        businessId: waba.owner_business_info?.id,
+                        businessName: waba.owner_business_info?.name,
+                        source: 'app_shared'
+                    });
+                }
+            }
+        } catch (appWabasError) {
+            logger.warn('Could not get app shared WABAs:', appWabasError.response?.data || appWabasError.message);
+        }
+
+        // METHOD 2: Get WABAs from user's businesses with whatsapp_business_management permission
+        try {
+            logger.info('Method 2: Checking user businesses...');
+            const businessesResponse = await axios.get(`https://graph.facebook.com/v21.0/me/businesses`, {
+                params: {
+                    fields: 'id,name,owned_whatsapp_business_accounts{id,name,account_review_status},client_whatsapp_business_accounts{id,name,account_review_status}',
                     access_token: accessToken
                 }
             });
 
-            logger.info('User businesses response:', wabasResponse.data);
+            logger.info('User businesses response:', JSON.stringify(businessesResponse.data, null, 2));
 
-            const wabas = [];
-
-            // Extract WABAs from businesses
-            if (wabasResponse.data.data) {
-                for (const business of wabasResponse.data.data) {
+            if (businessesResponse.data.data) {
+                for (const business of businessesResponse.data.data) {
+                    // Check owned WABAs
                     if (business.owned_whatsapp_business_accounts?.data) {
                         for (const waba of business.owned_whatsapp_business_accounts.data) {
-                            wabas.push({
+                            addWaba({
                                 id: waba.id,
-                                name: waba.name,
+                                name: waba.name || 'WhatsApp Business Account',
                                 status: waba.account_review_status,
                                 businessId: business.id,
-                                businessName: business.name
+                                businessName: business.name,
+                                source: 'business_owned'
+                            });
+                        }
+                    }
+                    // Check client WABAs (for agencies)
+                    if (business.client_whatsapp_business_accounts?.data) {
+                        for (const waba of business.client_whatsapp_business_accounts.data) {
+                            addWaba({
+                                id: waba.id,
+                                name: waba.name || 'WhatsApp Business Account',
+                                status: waba.account_review_status,
+                                businessId: business.id,
+                                businessName: business.name,
+                                source: 'business_client'
                             });
                         }
                     }
                 }
             }
-
-            if (wabas.length > 0) {
-                return res.json({ wabas });
-            }
         } catch (bizError) {
-            logger.warn('Could not get businesses, trying alternative method:', bizError.message);
+            logger.warn('Could not get user businesses:', bizError.response?.data || bizError.message);
         }
 
-        // Method 2: Try to get WABAs directly through permission grants
+        // METHOD 3: Try to query the user's own WhatsApp nodes directly (from token scopes)
         try {
-            const grantsResponse = await axios.get(`https://graph.facebook.com/v18.0/me/permission_grants`, {
+            logger.info('Method 3: Checking user WhatsApp accounts...');
+            const userWabasResponse = await axios.get(`https://graph.facebook.com/v21.0/me/whatsapp_business_accounts`, {
                 params: {
-                    fields: 'business,whatsapp_business_account',
+                    fields: 'id,name,account_review_status',
                     access_token: accessToken
                 }
             });
 
-            logger.info('Permission grants response:', grantsResponse.data);
+            logger.info('User WABAs response:', JSON.stringify(userWabasResponse.data, null, 2));
 
-            const wabas = [];
+            if (userWabasResponse.data.data) {
+                for (const waba of userWabasResponse.data.data) {
+                    addWaba({
+                        id: waba.id,
+                        name: waba.name || 'WhatsApp Business Account',
+                        status: waba.account_review_status,
+                        source: 'user_direct'
+                    });
+                }
+            }
+        } catch (userWabasError) {
+            logger.warn('Could not get user WABAs directly:', userWabasError.response?.data || userWabasError.message);
+        }
+
+        // METHOD 4: Check permission grants
+        try {
+            logger.info('Method 4: Checking permission grants...');
+            const grantsResponse = await axios.get(`https://graph.facebook.com/v21.0/me/permission_grants`, {
+                params: {
+                    fields: 'business,whatsapp_business_account{id,name,account_review_status}',
+                    access_token: accessToken
+                }
+            });
+
+            logger.info('Permission grants response:', JSON.stringify(grantsResponse.data, null, 2));
+
             if (grantsResponse.data.data) {
                 for (const grant of grantsResponse.data.data) {
                     if (grant.whatsapp_business_account) {
-                        wabas.push({
+                        addWaba({
                             id: grant.whatsapp_business_account.id,
                             name: grant.whatsapp_business_account.name || 'WhatsApp Business Account',
-                            businessId: grant.business?.id
+                            status: grant.whatsapp_business_account.account_review_status,
+                            businessId: grant.business?.id,
+                            source: 'permission_grant'
                         });
                     }
                 }
             }
-
-            if (wabas.length > 0) {
-                return res.json({ wabas });
-            }
         } catch (grantsError) {
-            logger.warn('Could not get permission grants:', grantsError.message);
+            logger.warn('Could not get permission grants:', grantsError.response?.data || grantsError.message);
+        }
+
+        // Log final results
+        logger.info(`Found ${allWabas.length} WABAs total`);
+
+        if (allWabas.length > 0) {
+            return res.json({ wabas: allWabas });
         }
 
         // If still no WABAs found, return empty with helpful message
         res.json({
             wabas: [],
-            message: 'No se encontraron cuentas de WhatsApp Business asociadas. Asegúrate de completar el registro de WhatsApp en Meta.'
+            message: 'No se encontraron cuentas de WhatsApp Business asociadas. Asegúrate de completar todo el flujo de registro en Meta y que tu número esté vinculado a una WABA.'
         });
 
     } catch (error) {
