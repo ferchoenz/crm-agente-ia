@@ -266,6 +266,8 @@ export function emitToConversation(conversationId, event, data) {
  */
 export function emitNewMessage(organizationId, conversationId, message) {
     if (io) {
+        logger.info(`[Socket] Emitting new message to org:${organizationId} and convo:${conversationId}`);
+
         io.to(`org:${organizationId}`).emit('conversation:updated', {
             conversationId,
             lastMessage: message
@@ -275,6 +277,8 @@ export function emitNewMessage(organizationId, conversationId, message) {
             message,
             conversationId
         });
+    } else {
+        logger.warn('[Socket] Failed to emit message: IO not initialized');
     }
 }
 

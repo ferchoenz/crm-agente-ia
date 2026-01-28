@@ -7,16 +7,24 @@ import { logger } from '../../utils/logger.js';
  * Generates and manages vector embeddings for products
  */
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const EMBEDDING_MODEL = 'openai/text-embedding-3-small';
+
+/**
+ * Get API key at runtime (not module load time)
+ */
+function getApiKey() {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+        throw new Error('OPENROUTER_API_KEY is required for embeddings');
+    }
+    return apiKey;
+}
 
 /**
  * Generate embedding for text using OpenRouter
  */
 export async function generateEmbedding(text) {
-    if (!OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY is required for embeddings');
-    }
+    const apiKey = getApiKey();
 
     try {
         const response = await axios.post(
@@ -27,7 +35,7 @@ export async function generateEmbedding(text) {
             },
             {
                 headers: {
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://agentify-chat.com',
                     'X-Title': 'Agentify Chat'
@@ -50,9 +58,7 @@ export async function generateEmbedding(text) {
  * Generate embeddings for multiple texts (batch)
  */
 export async function generateEmbeddings(texts) {
-    if (!OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY is required for embeddings');
-    }
+    const apiKey = getApiKey();
 
     try {
         const response = await axios.post(
@@ -63,7 +69,7 @@ export async function generateEmbeddings(texts) {
             },
             {
                 headers: {
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://agentify-chat.com',
                     'X-Title': 'Agentify Chat'
@@ -83,7 +89,7 @@ export async function generateEmbeddings(texts) {
 }
 
 /**
- * Generate embeddings for a product and save y
+ * Generate embeddings for a product and save
  */
 export async function embedProduct(productId) {
     const product = await Product.findById(productId);
