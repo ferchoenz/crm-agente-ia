@@ -3,7 +3,7 @@ import { Channel } from '../../models/index.js';
 import { encrypt } from '../encryption.service.js';
 import { logger } from '../../utils/logger.js';
 
-const GRAPH_API_URL = 'https://graph.facebook.com/v18.0';
+const GRAPH_API_URL = 'https://graph.facebook.com/v21.0';
 
 /**
  * WhatsApp Embedded Sign-Up Service

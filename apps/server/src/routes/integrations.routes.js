@@ -261,7 +261,8 @@ router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
                 }
             }
         } catch (appWabasError) {
-            logger.warn('Could not get app shared WABAs:', appWabasError.response?.data || appWabasError.message);
+            const errorData = appWabasError.response?.data?.error || appWabasError.response?.data || appWabasError.message;
+            logger.warn(`Could not get app shared WABAs: ${JSON.stringify(errorData)}`);
         }
 
         // METHOD 2: Get WABAs from user's businesses with whatsapp_business_management permission
@@ -307,7 +308,8 @@ router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
                 }
             }
         } catch (bizError) {
-            logger.warn('Could not get user businesses:', bizError.response?.data || bizError.message);
+            const errorData = bizError.response?.data?.error || bizError.response?.data || bizError.message;
+            logger.warn(`Could not get user businesses: ${JSON.stringify(errorData)}`);
         }
 
         // METHOD 3: Try to query the user's own WhatsApp nodes directly (from token scopes)
@@ -333,7 +335,8 @@ router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
                 }
             }
         } catch (userWabasError) {
-            logger.warn('Could not get user WABAs directly:', userWabasError.response?.data || userWabasError.message);
+            const errorData = userWabasError.response?.data?.error || userWabasError.response?.data || userWabasError.message;
+            logger.warn(`Could not get user WABAs directly: ${JSON.stringify(errorData)}`);
         }
 
         // METHOD 4: Check permission grants
@@ -362,7 +365,8 @@ router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
                 }
             }
         } catch (grantsError) {
-            logger.warn('Could not get permission grants:', grantsError.response?.data || grantsError.message);
+            const errorData = grantsError.response?.data?.error || grantsError.response?.data || grantsError.message;
+            logger.warn(`Could not get permission grants: ${JSON.stringify(errorData)}`);
         }
 
         // Log final results
