@@ -311,6 +311,21 @@ export async function processWhatsAppMessage(webhookData) {
         customer.stats.totalMessages = (customer.stats.totalMessages || 0) + 1;
         await customer.save();
 
+        // Emit socket event for real-time inbox update
+        try {
+            const { emitNewMessage } = await import('../socket.service.js');
+            emitNewMessage(
+                channel.organization._id.toString(),
+                conversation._id,
+                {
+                    ...incomingMessage.toObject(),
+                    sender: { _id: customer._id, name: customer.name || customer.phone }
+                }
+            );
+        } catch (socketError) {
+            logger.warn('Failed to emit socket event:', socketError.message);
+        }
+
         // Process with AI if enabled
         if (conversation.aiEnabled && content && messageType === 'text') {
             await processWithAI(channel, conversation, customer, content);

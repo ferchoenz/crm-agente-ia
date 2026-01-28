@@ -21,8 +21,9 @@ function getEmbeddingModel() {
         }
 
         genAI = new GoogleGenerativeAI(apiKey);
-        embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-        logger.info('Gemini embedding model initialized');
+        // Use embedding-001 which is the correct model for embeddings
+        embeddingModel = genAI.getGenerativeModel({ model: 'embedding-001' });
+        logger.info('Gemini embedding model initialized (embedding-001)');
     }
     return embeddingModel;
 }
@@ -80,7 +81,7 @@ export async function embedProduct(productId) {
         const embedding = await generateEmbedding(text);
 
         product.embedding = embedding;
-        product.embeddingModel = 'text-embedding-004';
+        product.embeddingModel = 'embedding-001';
         product.embeddingUpdatedAt = new Date();
 
         await product.save();
