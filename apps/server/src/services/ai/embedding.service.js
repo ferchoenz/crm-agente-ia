@@ -83,7 +83,7 @@ export async function generateEmbeddings(texts) {
 }
 
 /**
- * Generate embeddings for a product and save
+ * Generate embeddings for a product and save y
  */
 export async function embedProduct(productId) {
     const product = await Product.findById(productId);
