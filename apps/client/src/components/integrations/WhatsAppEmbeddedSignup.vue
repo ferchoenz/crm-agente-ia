@@ -172,38 +172,59 @@ function launchEmbeddedSignup() {
 
   // Set up message listener BEFORE launching FB.login to capture session info
   const sessionInfoListener = (event) => {
-    // Only process messages from Facebook
-    if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') {
+    // Log ALL postMessage events for debugging (you can remove this later)
+    console.log('PostMessage event received:', {
+      origin: event.origin,
+      data: event.data
+    })
+    
+    // Only process messages from Facebook domains
+    if (!event.origin.includes('facebook.com')) {
       return
     }
     
     try {
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
       
-      // Check if this is WhatsApp Embedded Signup session info
-      if (data.type === 'WA_EMBEDDED_SIGNUP') {
-        console.log('WhatsApp Embedded Signup session info received:', data)
-        
-        // Session info contains the WABA ID and Phone Number ID
-        if (data.data) {
-          const sessionData = data.data
-          
-          // Store the WABA ID and Phone Number ID from session
-          if (sessionData.waba_id) {
-            pendingData.value.wabaId = sessionData.waba_id
-          }
-          if (sessionData.phone_number_id) {
-            pendingData.value.phoneNumberId = sessionData.phone_number_id
-          }
-          
-          console.log('Session data captured:', {
-            wabaId: pendingData.value.wabaId,
-            phoneNumberId: pendingData.value.phoneNumberId
-          })
-        }
+      console.log('Facebook postMessage data:', data)
+      
+      // Check multiple possible formats for WhatsApp session info
+      // Format 1: WA_EMBEDDED_SIGNUP type
+      if (data.type === 'WA_EMBEDDED_SIGNUP' && data.data) {
+        console.log('WA_EMBEDDED_SIGNUP event received:', data.data)
+        if (data.data.waba_id) pendingData.value.wabaId = data.data.waba_id
+        if (data.data.phone_number_id) pendingData.value.phoneNumberId = data.data.phone_number_id
       }
+      
+      // Format 2: Direct waba_id/phone_number_id in data
+      if (data.waba_id) {
+        console.log('WABA ID found directly in event:', data.waba_id)
+        pendingData.value.wabaId = data.waba_id
+      }
+      if (data.phone_number_id) {
+        console.log('Phone Number ID found directly in event:', data.phone_number_id)
+        pendingData.value.phoneNumberId = data.phone_number_id
+      }
+      
+      // Format 3: event property contains the data
+      if (data.event === 'FINISH' || data.event === 'SUBMIT') {
+        console.log('WhatsApp signup FINISH/SUBMIT event:', data)
+        if (data.waba_id) pendingData.value.wabaId = data.waba_id
+        if (data.phone_number_id) pendingData.value.phoneNumberId = data.phone_number_id
+        if (data.data?.waba_id) pendingData.value.wabaId = data.data.waba_id
+        if (data.data?.phone_number_id) pendingData.value.phoneNumberId = data.data.phone_number_id
+      }
+      
+      console.log('Current pendingData after processing:', {
+        wabaId: pendingData.value.wabaId,
+        phoneNumberId: pendingData.value.phoneNumberId
+      })
+      
     } catch (e) {
-      // Not JSON or not relevant data, ignore
+      // Not JSON, might be a string message
+      if (typeof event.data === 'string' && event.data.includes('waba')) {
+        console.log('String message containing waba:', event.data)
+      }
     }
   }
   
