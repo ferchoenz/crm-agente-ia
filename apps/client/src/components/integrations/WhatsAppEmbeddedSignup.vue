@@ -263,11 +263,7 @@ function launchEmbeddedSignup() {
     response_type: 'code',
     override_default_response_type: true,
     extras: {
-      setup: {
-        // No solutionID needed for standalone Tech Provider
-      },
-      featureType: '',
-      sessionInfoVersion: '3'  // Required to receive WABA ID and Phone Number ID
+      setup: {}
     }
   })
 }
