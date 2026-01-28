@@ -207,11 +207,23 @@ router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
         };
 
         // Get debug info about the token to understand its scope
+        // Use FACEBOOK_APP_SECRET with fallback to META_APP_SECRET for compatibility
+        const appSecret = process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET;
+        const appId = process.env.FACEBOOK_APP_ID;
+
+        if (!appId || !appSecret) {
+            logger.error('Missing FACEBOOK_APP_ID or FACEBOOK_APP_SECRET in environment');
+            return res.status(500).json({ error: 'Server configuration error: missing Facebook credentials' });
+        }
+
+        const appToken = `${appId}|${appSecret}`;
+        logger.info(`Using App ID: ${appId}, App Secret: ${appSecret ? '[CONFIGURED]' : '[MISSING]'}`);
+
         try {
             const debugResponse = await axios.get(`https://graph.facebook.com/v21.0/debug_token`, {
                 params: {
                     input_token: accessToken,
-                    access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.META_APP_SECRET}`
+                    access_token: appToken
                 }
             });
             logger.info('Token debug info:', JSON.stringify(debugResponse.data, null, 2));
@@ -223,9 +235,9 @@ router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
         // This uses the app-scoped token to find all WABAs that have been shared
         try {
             logger.info('Method 1: Checking app shared WABAs...');
-            const appToken = `${process.env.FACEBOOK_APP_ID}|${process.env.META_APP_SECRET}`;
+            logger.info(`Making request to: https://graph.facebook.com/v21.0/${appId}/whatsapp_business_accounts`);
             const sharedWabasResponse = await axios.get(
-                `https://graph.facebook.com/v21.0/${process.env.FACEBOOK_APP_ID}/whatsapp_business_accounts`,
+                `https://graph.facebook.com/v21.0/${appId}/whatsapp_business_accounts`,
                 {
                     params: {
                         fields: 'id,name,account_review_status,owner_business_info{id,name}',

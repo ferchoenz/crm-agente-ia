@@ -18,7 +18,7 @@ export class EmbeddedSignUpService {
             const response = await axios.post(`${GRAPH_API_URL}/oauth/access_token`, null, {
                 params: {
                     client_id: process.env.FACEBOOK_APP_ID,
-                    client_secret: process.env.META_APP_SECRET,
+                    client_secret: process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET,
                     code
                 }
             });
