@@ -111,6 +111,23 @@ async function startServer() {
     setTimeout(() => runAutoFollowUpsForAllOrgs(), 2 * 60 * 1000);
     logger.info('✅ Auto follow-up job scheduled (runs every hour)');
 
+    // Start token refresh job (runs daily at 3 AM)
+    const scheduleTokenRefresh = async () => {
+      try {
+        const { runTokenRefreshJob } = await import('./services/integrations/token-refresh.service.js');
+        await runTokenRefreshJob();
+      } catch (error) {
+        logger.error('Token refresh job error:', error);
+      }
+    };
+
+    // Run daily (24 hours)
+    setInterval(scheduleTokenRefresh, 24 * 60 * 60 * 1000);
+
+    // Run once on startup after 5 minutes
+    setTimeout(scheduleTokenRefresh, 5 * 60 * 1000);
+    logger.info('✅ Token refresh job scheduled (runs daily)');
+
     httpServer.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);

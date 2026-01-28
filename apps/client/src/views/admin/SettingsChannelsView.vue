@@ -5,6 +5,14 @@
         <h2 class="text-2xl font-bold text-slate-800">Canales de Comunicación</h2>
         <p class="text-slate-500">Conecta WhatsApp, Facebook e Instagram para recibir mensajes</p>
       </div>
+      <!-- Refresh Button -->
+      <button 
+        @click="loadChannels" 
+        class="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+        title="Recargar canales"
+      >
+        <RefreshIcon :class="{ 'animate-spin': loading }" class="w-5 h-5" />
+      </button>
     </div>
     
     <!-- WhatsApp Section -->
@@ -94,9 +102,20 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="px-2.5 py-1 rounded-full text-xs font-medium" :class="channel.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
-              {{ channel.status === 'active' ? 'Conectado' : 'Desconectado' }}
-            </span>
+            <div class="flex flex-col items-end gap-1">
+              <span class="px-2.5 py-1 rounded-full text-xs font-medium" :class="channel.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
+                {{ channel.status === 'active' ? 'Conectado' : 'Desconectado' }}
+              </span>
+              <!-- Token Expiry Warning -->
+              <span 
+                v-if="getTokenStatus(channel.tokenExpiresAt).warning" 
+                class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-1"
+                :title="getTokenStatus(channel.tokenExpiresAt).tooltip"
+              >
+                <AlertTriangleIcon class="w-3 h-3" />
+                {{ getTokenStatus(channel.tokenExpiresAt).label }}
+              </span>
+            </div>
             <button @click="toggleChannelSettings(channel, 'messenger')" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
               <SettingsIcon class="w-4 h-4 text-slate-500" />
             </button>
@@ -147,9 +166,20 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="px-2.5 py-1 rounded-full text-xs font-medium" :class="channel.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
-              {{ channel.status === 'active' ? 'Conectado' : 'Desconectado' }}
-            </span>
+            <div class="flex flex-col items-end gap-1">
+              <span class="px-2.5 py-1 rounded-full text-xs font-medium" :class="channel.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
+                {{ channel.status === 'active' ? 'Conectado' : 'Desconectado' }}
+              </span>
+              <!-- Token Expiry Warning -->
+              <span 
+                v-if="getTokenStatus(channel.tokenExpiresAt).warning" 
+                class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-1"
+                :title="getTokenStatus(channel.tokenExpiresAt).tooltip"
+              >
+                <AlertTriangleIcon class="w-3 h-3" />
+                {{ getTokenStatus(channel.tokenExpiresAt).label }}
+              </span>
+            </div>
             <button @click="toggleChannelSettings(channel, 'instagram')" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
               <SettingsIcon class="w-4 h-4 text-slate-500" />
             </button>
@@ -407,7 +437,9 @@ import {
   CheckCircle as CheckCircleIcon,
   Facebook as FacebookIcon,
   Instagram as InstagramIcon,
-  X as XIcon
+  X as XIcon,
+  RefreshCw as RefreshIcon,
+  AlertTriangle as AlertTriangleIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -924,5 +956,29 @@ async function disconnectChannel(channelId, type) {
     console.error('Failed to disconnect channel:', error)
     alert('Error al desconectar canal')
   }
+}
+
+function getTokenStatus(expiresAt) {
+  if (!expiresAt) return { warning: false }
+  
+  const days = Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
+  
+  if (days < 0) {
+    return {
+      warning: true,
+      label: 'Token expirado',
+      tooltip: 'El token de conexión ha expirado. Por favor reconecta la página.'
+    }
+  }
+  
+  if (days < 7) {
+    return {
+      warning: true,
+      label: `Expira en ${days} días`,
+      tooltip: `El token expira el ${new Date(expiresAt).toLocaleDateString()}. Se renovará automáticamente.`
+    }
+  }
+
+  return { warning: false }
 }
 </script>

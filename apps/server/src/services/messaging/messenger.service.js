@@ -81,8 +81,9 @@ export class MessengerService {
 
     /**
      * Send a single message to Messenger API
+     * Includes automatic retry with token refresh on expiration
      */
-    async _sendSingleMessage(recipientId, text) {
+    async _sendSingleMessage(recipientId, text, isRetry = false) {
         try {
             const response = await axios.post(
                 `${MESSENGER_API_URL}/me/messages`,
@@ -105,6 +106,39 @@ export class MessengerService {
             return response.data;
         } catch (error) {
             const fbError = error.response?.data?.error;
+
+            // Check if it's a token expiration error (code 190)
+            if (fbError && fbError.code === 190 && !isRetry) {
+                logger.warn('Token expired, attempting refresh...');
+
+                try {
+                    // Try to refresh the token
+                    const { refreshChannelToken } = await import('../integrations/token-refresh.service.js');
+                    const success = await refreshChannelToken(this.channel._id);
+
+                    if (success) {
+                        // Reload channel to get new token
+                        const { Channel } = await import('../../models/index.js');
+                        const { decrypt } = await import('../../utils/encryption.util.js');
+
+                        const updatedChannel = await Channel.findById(this.channel._id);
+                        if (updatedChannel?.credentials?.accessToken?.encrypted) {
+                            this.accessToken = decrypt(updatedChannel.credentials.accessToken);
+                            this.channel = updatedChannel;
+
+                            // Retry the message with new token
+                            logger.info('Token refreshed, retrying message...');
+                            return await this._sendSingleMessage(recipientId, text, true);
+                        }
+                    }
+                } catch (refreshError) {
+                    logger.error('Token refresh failed:', refreshError.message);
+                }
+
+                // Mark channel as needing attention
+                await this.channel.markError('Token expired - please reconnect the page');
+            }
+
             if (fbError) {
                 logger.error(`Messenger send error: [${fbError.code}] ${fbError.message} - ${fbError.error_subcode || ''}`);
             } else {

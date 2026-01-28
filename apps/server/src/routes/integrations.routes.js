@@ -326,6 +326,7 @@ router.patch('/whatsapp/channels/:id/settings', requireAdmin, async (req, res) =
 
 /**
  * Connect Facebook Messenger (save credentials)
+ * Automatically converts short-lived tokens to long-lived tokens
  */
 router.post('/messenger/connect', requireAdmin, async (req, res) => {
     try {
@@ -333,6 +334,23 @@ router.post('/messenger/connect', requireAdmin, async (req, res) => {
 
         if (!pageId || !accessToken) {
             return res.status(400).json({ error: 'Page ID and access token are required' });
+        }
+
+        // Try to exchange for long-lived token (60 days)
+        let finalToken = accessToken;
+        let expiresAt = null;
+
+        try {
+            const { exchangeForLongLivedToken } = await import('../services/integrations/token-refresh.service.js');
+            const result = await exchangeForLongLivedToken(accessToken);
+            finalToken = result.accessToken;
+            expiresAt = new Date(Date.now() + result.expiresIn * 1000);
+            logger.info(`Converted to long-lived token, expires: ${expiresAt}`);
+        } catch (tokenError) {
+            // If exchange fails, continue with original token (might already be long-lived)
+            logger.warn('Token exchange failed, using original token:', tokenError.message);
+            // Assume 60 days from now for page tokens
+            expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
         }
 
         // Check if channel already exists
@@ -344,7 +362,8 @@ router.post('/messenger/connect', requireAdmin, async (req, res) => {
 
         if (channel) {
             // Update existing
-            channel.credentials.accessToken = encrypt(accessToken);
+            channel.credentials.accessToken = encrypt(finalToken);
+            channel.credentials.expiresAt = expiresAt;
             channel.messenger = { pageId, pageName };
             channel.status = 'active';
             channel.statusMessage = 'Connected successfully';
@@ -357,7 +376,8 @@ router.post('/messenger/connect', requireAdmin, async (req, res) => {
                 name: pageName || `Facebook Page ${pageId}`,
                 messenger: { pageId, pageName },
                 credentials: {
-                    accessToken: encrypt(accessToken)
+                    accessToken: encrypt(finalToken),
+                    expiresAt: expiresAt
                 },
                 status: 'active',
                 statusMessage: 'Connected successfully',
@@ -380,7 +400,8 @@ router.post('/messenger/connect', requireAdmin, async (req, res) => {
                 id: channel._id,
                 name: channel.name,
                 pageName: channel.messenger.pageName,
-                status: channel.status
+                status: channel.status,
+                tokenExpiresAt: expiresAt
             }
         });
     } catch (error) {
@@ -396,9 +417,15 @@ router.get('/messenger/channels', requireAdmin, async (req, res) => {
     const channels = await Channel.find({
         ...req.tenantFilter,
         type: 'messenger'
-    }).select('name messenger.pageId messenger.pageName status connectedAt settings stats');
+    }).select('name messenger.pageId messenger.pageName status connectedAt settings stats credentials.expiresAt');
 
-    res.json({ channels });
+    res.json({
+        channels: channels.map(c => ({
+            ...c.toObject(),
+            tokenExpiresAt: c.credentials?.expiresAt,
+            credentials: undefined // Don't expose other credentials
+        }))
+    });
 });
 
 /**
@@ -518,9 +545,15 @@ router.get('/instagram/channels', requireAdmin, async (req, res) => {
     const channels = await Channel.find({
         ...req.tenantFilter,
         type: 'instagram'
-    }).select('name instagram.accountId instagram.username instagram.name status connectedAt settings stats');
+    }).select('name instagram.accountId instagram.username instagram.name status connectedAt settings stats credentials.expiresAt');
 
-    res.json({ channels });
+    res.json({
+        channels: channels.map(c => ({
+            ...c.toObject(),
+            tokenExpiresAt: c.credentials?.expiresAt,
+            credentials: undefined // Don't expose other credentials
+        }))
+    });
 });
 
 /**

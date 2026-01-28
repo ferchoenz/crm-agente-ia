@@ -109,6 +109,7 @@ const config = ref({
 const pendingData = ref({
   code: null,
   wabaId: null,
+  phoneNumberId: null,
   accessToken: null
 })
 
@@ -169,8 +170,51 @@ function launchEmbeddedSignup() {
   loadingMessage.value = 'Abriendo Meta Business...'
   error.value = null
 
+  // Set up message listener BEFORE launching FB.login to capture session info
+  const sessionInfoListener = (event) => {
+    // Only process messages from Facebook
+    if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') {
+      return
+    }
+    
+    try {
+      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+      
+      // Check if this is WhatsApp Embedded Signup session info
+      if (data.type === 'WA_EMBEDDED_SIGNUP') {
+        console.log('WhatsApp Embedded Signup session info received:', data)
+        
+        // Session info contains the WABA ID and Phone Number ID
+        if (data.data) {
+          const sessionData = data.data
+          
+          // Store the WABA ID and Phone Number ID from session
+          if (sessionData.waba_id) {
+            pendingData.value.wabaId = sessionData.waba_id
+          }
+          if (sessionData.phone_number_id) {
+            pendingData.value.phoneNumberId = sessionData.phone_number_id
+          }
+          
+          console.log('Session data captured:', {
+            wabaId: pendingData.value.wabaId,
+            phoneNumberId: pendingData.value.phoneNumberId
+          })
+        }
+      }
+    } catch (e) {
+      // Not JSON or not relevant data, ignore
+    }
+  }
+  
+  // Add listener for session info
+  window.addEventListener('message', sessionInfoListener)
+
   // Launch Facebook Login with embedded signup
   FB.login(function(response) {
+    // Remove listener after login completes
+    window.removeEventListener('message', sessionInfoListener)
+    
     if (response.authResponse) {
       const authResponse = response.authResponse
       
@@ -186,13 +230,11 @@ function launchEmbeddedSignup() {
 
       loadingMessage.value = 'Procesando datos de WhatsApp...'
 
-      // Get WABA ID and phone numbers from the signup data
-      // The accessToken here is a short-lived user token, we need to exchange it
+      // Store the authorization code
       pendingData.value.code = authResponse.code
       pendingData.value.accessToken = authResponse.accessToken
 
-      // FacebookLogin for embedded signup returns data in a specific way
-      // We need to make additional API calls to get the WABA and phone details
+      // Process the signup response with session data
       handleSignupResponse(authResponse)
     } else {
       loading.value = false
@@ -205,23 +247,25 @@ function launchEmbeddedSignup() {
     override_default_response_type: true,
     extras: {
       setup: {
-        // This tells Facebook we want embedded signup flow
-      }
+        // No solutionID needed for standalone Tech Provider
+      },
+      featureType: '',
+      sessionInfoVersion: '3'  // Required to receive WABA ID and Phone Number ID
     }
   })
 }
 
 async function handleSignupResponse(authResponse) {
   try {
-    // The embedded signup returns the code and potentially WABA info
-    // We need to parse the response to extract WABA ID
+    // The embedded signup with sessionInfoVersion: 3 returns WABA and Phone info via message event
+    // Check if we already captured the data from the session info event
+    let wabaId = pendingData.value.wabaId || authResponse.wabaId || authResponse.waba_id
+    let phoneNumberId = pendingData.value.phoneNumberId
     
-    // Method 1: Check if WABA ID is in the auth response (it should be)
-    const wabaId = authResponse.wabaId || authResponse.waba_id
+    console.log('Processing signup response:', { wabaId, phoneNumberId, authResponse })
     
     if (!wabaId) {
-      // If not in auth response, we might need to make an API call
-      // to get user's WABAs using the access token
+      // If WABA ID not captured from session, show error
       error.value = 'No se pudo obtener la cuenta de WhatsApp Business. Intenta nuevamente.'
       loading.value = false
       return
@@ -229,7 +273,17 @@ async function handleSignupResponse(authResponse) {
 
     pendingData.value.wabaId = wabaId
 
-    // Get available phone numbers for this WABA
+    // If we already have the phone number ID from session, use it directly
+    if (phoneNumberId) {
+      console.log('Phone Number ID from session:', phoneNumberId)
+      loadingMessage.value = 'Conectando número de WhatsApp...'
+      
+      // Complete signup directly with the phone number from session
+      await completeSignup(phoneNumberId)
+      return
+    }
+
+    // If phone number ID not in session, fetch available phone numbers
     loadingMessage.value = 'Obteniendo números de teléfono...'
     const phonesResponse = await api.post('/integrations/whatsapp/waba/phone-numbers', {
       wabaId: wabaId,
@@ -256,6 +310,26 @@ async function handleSignupResponse(authResponse) {
   } catch (err) {
     console.error('Signup response handling failed:', err)
     error.value = err.response?.data?.error || 'Error al procesar la respuesta de WhatsApp'
+    loading.value = false
+  }
+}
+
+async function completeSignup(phoneNumberId) {
+  try {
+    const response = await api.post('/integrations/whatsapp/embedded-signup/callback', {
+      code: pendingData.value.code,
+      wabaId: pendingData.value.wabaId,
+      phoneNumberId: phoneNumberId
+    })
+
+    channel.value = response.data.channel
+    loading.value = false
+    loadingMessage.value = ''
+
+    emit('success', channel.value)
+  } catch (err) {
+    console.error('Failed to complete signup:', err)
+    error.value = err.response?.data?.error || 'Error al conectar el número de WhatsApp'
     loading.value = false
   }
 }
@@ -290,6 +364,7 @@ function cancelSelection() {
   pendingData.value = {
     code: null,
     wabaId: null,
+    phoneNumberId: null,
     accessToken: null
   }
 }
