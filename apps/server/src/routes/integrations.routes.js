@@ -453,6 +453,18 @@ router.post('/whatsapp/connect', requireAdmin, async (req, res) => {
 
         await channel.save();
 
+        // Subscribe the app to webhooks for this WABA
+        // This is required to receive messages
+        if (wabaId) {
+            try {
+                await EmbeddedSignUpService.subscribeToWebhooks(wabaId, accessToken);
+                logger.info(`Subscribed to webhooks for WABA ${wabaId}`);
+            } catch (webhookError) {
+                logger.warn(`Failed to subscribe to webhooks for WABA ${wabaId}:`, webhookError.message);
+                // Don't fail the connection if webhook subscription fails
+            }
+        }
+
         logger.info(`WhatsApp connected for org ${req.user.organizationId}: ${phoneNumber}`);
 
         res.json({
@@ -466,6 +478,49 @@ router.post('/whatsapp/connect', requireAdmin, async (req, res) => {
         });
     } catch (error) {
         logger.error('WhatsApp connect error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Subscribe existing WhatsApp channel to webhooks
+ * Use this for channels that were connected before automatic subscription was added
+ */
+router.post('/whatsapp/channels/:id/subscribe-webhooks', requireAdmin, async (req, res) => {
+    try {
+        const channel = await Channel.findOne({
+            _id: req.params.id,
+            ...req.tenantFilter,
+            type: 'whatsapp'
+        });
+
+        if (!channel) {
+            return res.status(404).json({ error: 'Channel not found' });
+        }
+
+        const wabaId = channel.whatsapp?.wabaId;
+        if (!wabaId) {
+            return res.status(400).json({ error: 'Channel has no WABA ID configured' });
+        }
+
+        // Decrypt the access token
+        const { decrypt } = await import('../services/encryption.service.js');
+        const accessToken = decrypt(channel.credentials.accessToken);
+
+        // Subscribe to webhooks
+        const result = await EmbeddedSignUpService.subscribeToWebhooks(wabaId, accessToken);
+
+        if (result) {
+            logger.info(`Manually subscribed WABA ${wabaId} to webhooks`);
+            res.json({ success: true, message: 'Successfully subscribed to webhooks' });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to subscribe to webhooks. Please check your access token permissions.'
+            });
+        }
+    } catch (error) {
+        logger.error('Subscribe webhooks error:', error);
         res.status(500).json({ error: error.message });
     }
 });
