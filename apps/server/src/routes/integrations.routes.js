@@ -182,8 +182,110 @@ router.post('/whatsapp/embedded-signup/callback', requireAdmin, async (req, res)
 });
 
 /**
- * Get phone numbers for a WABA (after user grants access)
+ * Discover WABAs associated with the user's access token
+ * This is used when the session info doesn't return the WABA ID
  */
+router.post('/whatsapp/discover-wabas', requireAdmin, async (req, res) => {
+    try {
+        const { accessToken } = req.body;
+
+        if (!accessToken) {
+            return res.status(400).json({ error: 'Access token is required' });
+        }
+
+        // First, get the user's business accounts
+        const axios = (await import('axios')).default;
+
+        // Get debug info about the token to find associated business
+        const debugResponse = await axios.get(`https://graph.facebook.com/v18.0/debug_token`, {
+            params: {
+                input_token: accessToken,
+                access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.META_APP_SECRET}`
+            }
+        });
+
+        logger.info('Token debug info:', debugResponse.data);
+
+        // Try to get WABAs from the user's accessible businesses
+        // Method 1: Get from shared WABAs endpoint
+        try {
+            const wabasResponse = await axios.get(`https://graph.facebook.com/v18.0/me/businesses`, {
+                params: {
+                    fields: 'id,name,owned_whatsapp_business_accounts{id,name,account_review_status}',
+                    access_token: accessToken
+                }
+            });
+
+            logger.info('User businesses response:', wabasResponse.data);
+
+            const wabas = [];
+
+            // Extract WABAs from businesses
+            if (wabasResponse.data.data) {
+                for (const business of wabasResponse.data.data) {
+                    if (business.owned_whatsapp_business_accounts?.data) {
+                        for (const waba of business.owned_whatsapp_business_accounts.data) {
+                            wabas.push({
+                                id: waba.id,
+                                name: waba.name,
+                                status: waba.account_review_status,
+                                businessId: business.id,
+                                businessName: business.name
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (wabas.length > 0) {
+                return res.json({ wabas });
+            }
+        } catch (bizError) {
+            logger.warn('Could not get businesses, trying alternative method:', bizError.message);
+        }
+
+        // Method 2: Try to get WABAs directly through permission grants
+        try {
+            const grantsResponse = await axios.get(`https://graph.facebook.com/v18.0/me/permission_grants`, {
+                params: {
+                    fields: 'business,whatsapp_business_account',
+                    access_token: accessToken
+                }
+            });
+
+            logger.info('Permission grants response:', grantsResponse.data);
+
+            const wabas = [];
+            if (grantsResponse.data.data) {
+                for (const grant of grantsResponse.data.data) {
+                    if (grant.whatsapp_business_account) {
+                        wabas.push({
+                            id: grant.whatsapp_business_account.id,
+                            name: grant.whatsapp_business_account.name || 'WhatsApp Business Account',
+                            businessId: grant.business?.id
+                        });
+                    }
+                }
+            }
+
+            if (wabas.length > 0) {
+                return res.json({ wabas });
+            }
+        } catch (grantsError) {
+            logger.warn('Could not get permission grants:', grantsError.message);
+        }
+
+        // If still no WABAs found, return empty with helpful message
+        res.json({
+            wabas: [],
+            message: 'No se encontraron cuentas de WhatsApp Business asociadas. Asegúrate de completar el registro de WhatsApp en Meta.'
+        });
+
+    } catch (error) {
+        logger.error('Failed to discover WABAs:', error.response?.data || error.message);
+        res.status(500).json({ error: error.response?.data?.error?.message || error.message });
+    }
+});
 router.post('/whatsapp/waba/phone-numbers', requireAdmin, async (req, res) => {
     try {
         const { wabaId, accessToken } = req.body;

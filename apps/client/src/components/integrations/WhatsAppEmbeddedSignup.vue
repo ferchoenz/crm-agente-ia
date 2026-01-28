@@ -253,21 +253,47 @@ function launchEmbeddedSignup() {
 
 async function handleSignupResponse(authResponse) {
   try {
-    // The embedded signup with sessionInfoVersion: 3 returns WABA and Phone info via message event
-    // Check if we already captured the data from the session info event
+    // The embedded signup with sessionInfoVersion: 3 may return WABA and Phone info via message event
+    // But sometimes it doesn't, so we need to discover WABAs using the access token
     let wabaId = pendingData.value.wabaId || authResponse.wabaId || authResponse.waba_id
     let phoneNumberId = pendingData.value.phoneNumberId
     
     console.log('Processing signup response:', { wabaId, phoneNumberId, authResponse })
     
+    // If we don't have WABA ID from session, we need to discover it
     if (!wabaId) {
-      // If WABA ID not captured from session, show error
-      error.value = 'No se pudo obtener la cuenta de WhatsApp Business. Intenta nuevamente.'
-      loading.value = false
-      return
+      console.log('WABA ID not in session, discovering via API...')
+      loadingMessage.value = 'Descubriendo cuentas de WhatsApp...'
+      
+      try {
+        // Call backend to discover WABAs using the access token
+        const discoverResponse = await api.post('/integrations/whatsapp/discover-wabas', {
+          accessToken: authResponse.accessToken
+        })
+        
+        const wabas = discoverResponse.data.wabas || []
+        console.log('Discovered WABAs:', wabas)
+        
+        if (wabas.length === 0) {
+          error.value = 'No se encontraron cuentas de WhatsApp Business. Asegúrate de completar el registro en Meta.'
+          loading.value = false
+          return
+        }
+        
+        // Use the first WABA (or show selector if multiple)
+        wabaId = wabas[0].id
+        pendingData.value.wabaId = wabaId
+        
+        console.log('Using WABA:', wabaId)
+      } catch (discoverError) {
+        console.error('WABA discovery failed:', discoverError)
+        error.value = discoverError.response?.data?.error || 'Error al descubrir cuentas de WhatsApp'
+        loading.value = false
+        return
+      }
+    } else {
+      pendingData.value.wabaId = wabaId
     }
-
-    pendingData.value.wabaId = wabaId
 
     // If we already have the phone number ID from session, use it directly
     if (phoneNumberId) {
@@ -279,7 +305,7 @@ async function handleSignupResponse(authResponse) {
       return
     }
 
-    // If phone number ID not in session, fetch available phone numbers
+    // Fetch available phone numbers for this WABA
     loadingMessage.value = 'Obteniendo números de teléfono...'
     const phonesResponse = await api.post('/integrations/whatsapp/waba/phone-numbers', {
       wabaId: wabaId,
