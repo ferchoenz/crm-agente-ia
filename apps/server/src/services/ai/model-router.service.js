@@ -117,7 +117,7 @@ export class ModelRouterService {
             'L3': []
         };
 
-        const levelsToTry = fallbackOrder[requestedLevel] || ['L1', 'L2', 'L3'];
+        const levelsToTry = [requestedLevel, ...(fallbackOrder[requestedLevel] || [])];
         let lastError = null;
 
         for (const level of levelsToTry) {
