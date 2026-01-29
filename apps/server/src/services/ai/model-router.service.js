@@ -88,7 +88,7 @@ export class ModelRouterService {
                     return 'L1'; // Simple (Groq)
                 default:
                     // Fallback to L2 for unknown intents (safer than L1)
-                    logger.info(`Unknown intent, defaulting to L2`);
+                    logger.debug(`Unknown intent, defaulting to L2`);
                     return 'L2';
             }
         } catch (error) {

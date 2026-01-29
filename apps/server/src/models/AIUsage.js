@@ -22,7 +22,7 @@ const aiUsageSchema = new mongoose.Schema({
     // Provider info
     provider: {
         type: String,
-        enum: ['groq', 'gemini', 'deepseek', 'openai', 'unknown'],
+        enum: ['groq', 'gemini', 'deepseek', 'openai', 'gpt-4o-mini', 'gpt-4.1', 'claude', 'unknown'],
         required: true
     },
     model: {

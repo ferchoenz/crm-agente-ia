@@ -53,7 +53,7 @@ export async function generateCustomerSummary(customerId, organizationId) {
   "summary": "Resumen de 2-3 oraciones sobre quién es y qué busca este cliente",
   "interests": ["interés 1", "interés 2", "interés 3"],
   "intents": ["consulta", "compra", "soporte"],
-  "sentiment": "positivo|neutral|negativo",
+  "sentiment": "positive|neutral|negative",
   "buyingSignals": {
     "askedPrice": true/false,
     "mentionedBuying": true/false,

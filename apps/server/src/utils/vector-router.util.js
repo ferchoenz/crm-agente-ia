@@ -68,27 +68,31 @@ export class VectorRouter {
         await this.addRoute('objection', [
             "es muy caro", "el precio es alto", "lo voy a pensar",
             "necesito consultarlo", "no estoy seguro", "la competencia es mas barata",
-            "no tengo presupuesto", "es mucho dinero"
+            "no tengo presupuesto", "es mucho dinero", "se me hace costoso",
+            "déjame ver", "tengo que revisar mis finanzas"
         ]);
 
         // Route: Closing / Purchase (Needs Speed/Action - L2)
         await this.addRoute('purchase', [
             "quiero comprar", "donde pago", "mándame el link",
             "me interesa", "lo quiero", "como procedemos",
-            "acepto la oferta", "facturan?"
+            "acepto la oferta", "facturan?", "estoy listo para pagar",
+            "enviame la cuenta", "tienes cuenta bancaria"
         ]);
 
         // Route: Support (Needs Knowledge Base - L3)
         await this.addRoute('support', [
             "no funciona", "tengo un problema", "error",
             "ayuda con mi cuenta", "no me llego el correo",
-            "como configuro x", "soporte tecnico"
+            "como configuro x", "soporte tecnico", "necesito asistencia",
+            "fallo el sistema", "no puedo entrar"
         ]);
 
-        // Route: Info/Greeting (Needs Speed - L1)
+        // Route: Greeting (Needs Speed - L1)
         await this.addRoute('greeting', [
             "hola", "buenos dias", "que tal",
-            "donde estan ubicados", "buenas tardes"
+            "donde estan ubicados", "buenas tardes", "buenas noches",
+            "hey", "saludos", "hola que tal"
         ]);
 
         // Route: Inquiry (General questions - L2)
@@ -96,7 +100,23 @@ export class VectorRouter {
             "cuanto cuesta", "que precio tiene", "información sobre",
             "me puedes explicar", "cuales son", "que servicios ofrecen",
             "que productos tienen", "catalogo", "opciones disponibles",
-            "como funciona", "que incluye", "detalles"
+            "como funciona", "que incluye", "detalles", "dame mas info"
+        ]);
+
+        // Route: Appointment (Needs Calendar - L2)
+        await this.addRoute('appointment', [
+            "quiero una cita", "agendar reunion", "reservar espacio",
+            "tienes tiempo disponible", "quiero hablar contigo",
+            "programar llamada", "agendar demo", "reunion virtual",
+            "cita presencial", "que horarios tienes"
+        ]);
+
+        // Route: Human Handoff (Needs Human - Route to Inbox)
+        await this.addRoute('human_handoff', [
+            "quiero hablar con un humano", "pásame con un asesor",
+            "necesito una persona real", "no eres un humano",
+            "hablar con alguien", "soporte humano", "gerente",
+            "supervisor", "atencion al cliente persona"
         ]);
 
         // Route: Conversation (Ongoing dialog - L2)
@@ -104,7 +124,7 @@ export class VectorRouter {
             "si", "no", "ok", "esta bien", "de acuerdo",
             "perfecto", "entiendo", "claro", "eso es todo",
             "gracias", "muchas gracias", "te cuento",
-            "pues mira", "la verdad", "es que"
+            "pues mira", "la verdad", "es que", "ya te dije"
         ]);
 
         this.initialized = true;

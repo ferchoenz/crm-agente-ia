@@ -12,26 +12,24 @@ Tu objetivo es conocer al cliente de manera natural y establecer una conexión.
 
 **PASO 1 - SALUDO:**
 - Saluda cálidamente y preséntate brevemente como asesor de {empresa}
+- SI ya conoces el nombre del cliente, salúdalo por su nombre.
 
 **PASO 2 - OBTENER NOMBRE:**
-- Pregunta: "¿Con quién tengo el gusto de hablar?" o "¿Cuál es tu nombre?"
-- Cuando responda, úsalo naturalmente: "¡Mucho gusto, {nombre}!"
+- SI NO conoces su nombre: Pregunta "¿Con quién tengo el gusto de hablar?"
+- SI YA conoces su nombre: OMITIR ESTE PASO.
 
-**PASO 3 - OBTENER CONTACTO (opcional pero valioso):**
-- Si la conversación lo permite, pregunta UNO de estos (no ambos juntos):
-  - "¿Me compartes tu número de WhatsApp para darte mejor seguimiento?"
-  - "¿Tienes un correo donde pueda enviarte información?"
-- NO insistas si el cliente no quiere darlo
+**PASO 3 - OBTENER CONTACTO (opcional):**
+- Pregunta esto SOLO si la conversación fluye bien y NO tienes ya el contacto.
+- "¿Me compartes tu número de WhatsApp para darte mejor seguimiento?"
+- SI el cliente se niega o ya lo tienes: CONTINÚA sin insistir.
 
 **PASO 4 - TRANSICIÓN:**
 - Pregunta: "¿En qué te puedo ayudar?" o "¿Qué te trae por aquí?"
 - Cuando mencione su necesidad → emite: [PHASE:SITUATION]
 
 **REGLAS:**
-- Sé NATURAL, como una conversación real, no un interrogatorio
-- NO hagas todas las preguntas seguidas
-- Si el cliente dice qué necesita antes de dar su nombre, respóndele primero y luego pide el nombre sutilmente
-- Si tiene URGENCIA, pasa a SITUATION aunque no tengas todos los datos
+- Sé NATURAL, como una conversación real.
+- NO preguntes cosas que ya sabes (revisa el contexto).
 - Máximo 2-3 líneas por mensaje`,
     SITUATION: `[🎯 FASE SPIN: SITUACIÓN]
 Tu objetivo es entender el CONTEXTO del cliente.
@@ -113,12 +111,32 @@ export class AIAgentService {
     /**
      * Build the system prompt based on organization settings
      */
-    buildSystemPrompt() {
+    buildSystemPrompt(customer = null) {
         const config = this.organization.aiConfig || {};
         const settings = this.organization.settings || {};
 
         let systemPrompt = config.systemPrompt ||
             `Eres el Consultor de Ventas Senior de ${this.organization.name}`;
+
+        // Inject Current Date/Time (Critical for appointments)
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        systemPrompt += `\n\n# 📅 FECHA Y HORA ACTUAL\nHoy es: ${dateStr}\nHora local: ${timeStr}`;
+
+        // Inject Customer Context
+        if (customer) {
+            systemPrompt += `\n\n# 👤 CONTEXTO DEL CLIENTE ACTUAL
+- ID: ${customer._id}
+- Nombre: ${customer.name || 'Desconocido (Preguntar si es natural)'}
+- Teléfono: ${customer.phone || 'Desconocido'}
+- Correo: ${customer.email || 'Desconocido'}
+- Estado: ${customer.stage || 'Nuevo'}
+- Intereses Previos: ${customer.insights?.interests?.join(', ') || 'Ninguno'}
+- Sentimiento Previo: ${customer.insights?.sentiment || 'Desconocido'}
+
+IMPORTANTE: Ya conoces toda esta información. NO PIDA datos que ya tienes.`;
+        }
 
         // Enhanced sales-oriented prompt
         systemPrompt += `
@@ -267,9 +285,9 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
     }
 
     /**
-     * Detect customer intent from message
+     * Detect customer intent from message using Vector Router + Regex Fallback
      */
-    detectIntent(message) {
+    async detectIntent(message) {
         const lowerMessage = message.toLowerCase();
 
         // PRIORITY: Check handoff FIRST (human request takes precedence)
@@ -286,6 +304,21 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
             return 'human_handoff';
         }
 
+        try {
+            // Lazy load vector router
+            const { vectorRouter } = await import('../../utils/vector-router.util.js');
+            const classification = await vectorRouter.classify(message);
+
+            logger.info(`Intent detected: ${classification.name} (${classification.score.toFixed(2)})`);
+
+            if (classification.name !== 'unknown') {
+                return classification.name;
+            }
+        } catch (error) {
+            logger.warn('Vector classification failed, falling back to regex:', error);
+        }
+
+        // Regex Fallback
         const intents = {
             greeting: ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hi', 'hello', 'qué tal'],
             product_list: ['qué tienen', 'qué venden', 'productos', 'catálogo', 'qué ofrecen', 'servicios'],
@@ -311,12 +344,15 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
         const startTime = Date.now();
 
         try {
-            // Build messages array
-            const systemMessage = new SystemMessage(this.buildSystemPrompt());
+            // Fetch Customer Data
+            const customer = customerId ? await Customer.findById(customerId).lean() : null;
+
+            // Build messages array with Customer Context
+            const systemMessage = new SystemMessage(this.buildSystemPrompt(customer));
             const history = await this.getConversationHistory(conversationId);
 
-            // Detect intent (Legacy regex + Vector fallback if needed)
-            const intent = this.detectIntent(customerMessage);
+            // Detect intent (Vector + Fallback)
+            const intent = await this.detectIntent(customerMessage);
 
             // DETECT SENTIMENT (Vector)
             const { vectorRouter } = await import('../../utils/vector-router.util.js');
