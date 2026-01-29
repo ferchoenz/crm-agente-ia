@@ -11,22 +11,18 @@ const EMBEDDING_MODEL = 'text-embedding-004';
 
 // Initialize Google AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
-const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-
-/**
- * Generate embedding for text using Google Gemini
- */
 export async function generateEmbedding(text) {
     if (!text || typeof text !== 'string') return [];
 
     try {
+        const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+
         const result = await model.embedContent(text);
         const embedding = result.embedding;
         return embedding.values;
     } catch (error) {
-        logger.error('Failed to generate embedding (Google):', error.message);
-        // Fallback or rethrow? For now, return empty array to prevent crash, but logs will show constraint.
-        // Better to re-throw if critical, but returning empty array avoids hard crash loop.
+        logger.error('Failed to generate embedding (Google):', error.message, error.stack);
         return [];
     }
 }

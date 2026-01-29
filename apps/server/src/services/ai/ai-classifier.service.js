@@ -27,53 +27,49 @@ export class AIClassifierService {
         const dateContext = context.date || now.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const timeContext = context.time || now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 
-        const systemPrompt = `Eres CORTEX, un analista lógico de conversaciones de ventas. NO respondes al usuario. Tu trabajo es ANALIZAR y EXTRAER datos en JSON.
+        const systemPrompt = `YOU ARE CORTEX, A LOGIC ENGINE.
+YOUR ONLY JOB IS TO CLASSIFY INTENT AND EXTRACT DATA.
+OUTPUT MUST BE VALID JSON. NO MARKDOWN. NO TEXT.
 
-# FECHA ACTUAL
-Hoy es: ${dateContext}
-Hora: ${timeContext}
+# DATE CONTEXT
+Today: ${dateContext}
+Time: ${timeContext}
 
-# INTENCIONES SOPORTADAS
-1. "appointment_new": Quiere agendar una nueva cita.
-2. "appointment_reschedule": Quiere cambiar/mover una cita existente.
-3. "appointment_cancel": Quiere cancelar una cita.
-4. "quote_request": Quiere una cotización o saber el precio total de un proyecto/servicio.
-5. "product_info": Pregunta por precios individuales, características o catálogo.
-6. "human_handoff": Pide hablar con una persona/asesor real.
-7. "negation": Dice "no", "cancelar operación", "no me interesa".
-8. "confirmation": Dice "sí", "ok", "correcto", "adelante".
-9. "general_inquiry": Preguntas generales sobre la empresa, ubicación, horarios.
-10. "greeting": Saludos simples (hola, buenos días).
-11. "unknown": No está claro o es irrelevante.
+# INTENTS
+- "appointment_new": Schedule new appointment.
+- "appointment_reschedule": Change existing appointment.
+- "appointment_cancel": Cancel appointment.
+- "quote_request": Request price/quote.
+- "product_info": Ask about product details/catalog.
+- "human_handoff": Request human agent.
+- "negation": No/Cancel.
+- "confirmation": Yes/Confirm.
+- "general_inquiry": General questions (location, hours).
+- "greeting": Hello/Hi.
+- "unknown": Unclear.
 
-# REGLAS DE EXTRACCIÓN
-- Si menciona "mañana", "el martes", etc., calcula la fecha exacta en formato YYYY-MM-DD basándote en que HOY es ${dateContext}.
-- Si menciona hora, extrae en formato HH:MM (24h).
+# RULES
+- Calculate specific dates (YYYY-MM-DD) from relative terms (tomorrow, next week).
+- Extract time in HH:MM.
 
-# SALIDA JSON
-Responde SOLO con este JSON:
+# JSON FORMAT
 {
-  "intent": "string (una de las intenciones arriba)",
-  "confidence": number (0-1),
+  "intent": "string",
+  "confidence": number,
   "entities": {
     "targetDate": "YYYY-MM-DD" | null,
-    "targetTime": "HH:MM" | null,
-    "productName": "string" | null,
-    "customerName": "string" | null,
-    "customerEmail": "string" | null
-  },
-  "reasoning": "Breve explicación de por qué clasificaste así"
-}
-`;
+    "targetTime": "HH:MM" | null
+  }
+}`;
 
         try {
             const response = await this.provider.chat([
                 { role: 'system', content: systemPrompt },
-                { role: 'user', content: message }
+                { role: 'user', content: `ANALYZE THIS: "${message}"\nRESPOND IN JSON ONLY.` }
             ], {
-                temperature: 0, // Deterministic
-                model: 'gemini-2.5-flash', // Fast & Smart (2025 Release)
-                responseMimeType: 'application/json' // FORCE JSON
+                temperature: 0,
+                model: 'gemini-2.5-flash',
+                responseMimeType: 'application/json'
             });
 
             // Clean potential markdown blocks just in case
