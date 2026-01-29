@@ -1,12 +1,7 @@
-import Redis from 'ioredis';
+import { getRedis } from '../../../config/redis.js';
 import { Appointment, Conversation } from '../../../models/index.js';
 import { logger } from '../../../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
-
-// Initialize Redis Client
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
-
-redis.on('error', (err) => logger.error('Redis Client Error', err));
 
 /**
  * Booking Safety System
@@ -106,6 +101,21 @@ REGLAS CRÍTICAS:
         }
 
         // ✅ ALL CHECKS PASSED -> Save to Redis (Atomic)
+        const redis = getRedis();
+
+        if (!redis) {
+            logger.warn('Redis unavailable, skipping atomic lock for booking');
+            // Proceed without Redis lock (less safe but functional if infrastructure fails)
+            // But we can't store the pending booking, so handleConfirmation will fail.
+            // We must populate "pendingBooking" in memory return, but Controller won't persist it across requests unless we use DB.
+            // For now, we return valid check, but warn.
+            return {
+                content: responseContent.replace(/\{[\s\S]*"type":\s*"suggested_action"[\s\S]*\}/, '').trim(),
+                hasPendingBooking: false, // Cannot persist state without Redis
+                warning: 'Redis unavailable'
+            };
+        }
+
         const redisKey = `pending:booking:${conversation._id}`;
         // Using conversation ID as key ensures only ONE pending booking per convo
         // We actally want client_request_id for idempotency on the ACTION, 
@@ -141,6 +151,9 @@ REGLAS CRÍTICAS:
      * Handle User Confirmation
      */
     static async handleConfirmation(conversation, userText, intent, appointmentService) {
+        const redis = getRedis();
+        if (!redis) return null;
+
         const redisKey = `pending:booking:${conversation._id}`;
         const pendingJson = await redis.get(redisKey);
 
