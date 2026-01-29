@@ -32,24 +32,29 @@ app.set('trust proxy', 1);
 app.use(helmet());
 
 // CORS configuration
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:5173',
+  'https://agentify-chat.com',
+  'https://www.agentify-chat.com',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
 
-// DEBUG: Permissive CORS to rule out config issues
 app.use(cors({
-  origin: '*', // Allow ALL origins temporarily
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-// DEBUG: Request Logging
-app.use((req, res, next) => {
-  logger.info(`Incoming Request: ${req.method} ${req.url}`);
-  logger.info(`Headers: ${JSON.stringify(req.headers)}`);
-  next();
-});
 
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
 app.use(express.json({ limit: '10mb' }));

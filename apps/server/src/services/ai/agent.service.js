@@ -97,7 +97,10 @@ export class AIAgentService {
     /**
      * Process message
      */
-    async processMessage({ conversationId, text, channel, customerId }) {
+    async processMessage({ conversationId, text, content, channel, customerId }) {
+        // Normalize text input (support both 'text' and 'content')
+        const messageText = text || content;
+
         if (!this.router) await this.initialize();
 
         logger.info(`Processing message for conversation ${conversationId}`);
@@ -114,7 +117,7 @@ export class AIAgentService {
         }
 
         // 2. Classify Intent (Cortex L1)
-        const classification = await aiClassifier.classify(text, {
+        const classification = await aiClassifier.classify(messageText, {
             date: new Date().toLocaleDateString('es-MX'),
             time: new Date().toLocaleTimeString('es-MX')
         });
@@ -324,10 +327,41 @@ export class AIAgentService {
             .trim();
     }
 
+    /**
+     * Legacy adapter for Messaging Services
+     * @deprecated Use processMessage directly
+     */
+    async generateResponse(conversationId, content, customerId) {
+        const result = await this.processMessage({
+            conversationId,
+            text: content,
+            customerId,
+            channel: 'unknown' // Channel is inferred from conversation context usually
+        });
+
+        // Map new result format to old expected format
+        return {
+            content: result.response,
+            intent: result.intent,
+            shouldHandoff: result.intent === 'human_handoff',
+            tokensUsed: result.metadata?.cost ? 0 : 0, // Placeholder
+            processingTime: 0
+        };
+    }
+
     updateCustomerInsights(customer, classification, text) {
         // Simple placeholder for async update
         if (classification.entities?.productName) {
             // Add interest?
         }
     }
+}
+
+/**
+ * Factory to create AI Agent instance
+ */
+export async function createAIAgent(organizationId) {
+    const agent = new AIAgentService(organizationId);
+    await agent.initialize();
+    return agent;
 }
