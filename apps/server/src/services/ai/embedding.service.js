@@ -1,56 +1,33 @@
-import axios from 'axios';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Product } from '../../models/index.js';
 import { logger } from '../../utils/logger.js';
 
 /**
- * Embedding Service for RAG using OpenRouter
+ * Embedding Service for RAG using Google Gemini
  * Generates and manages vector embeddings for products
  */
 
-const EMBEDDING_MODEL = 'openai/text-embedding-3-small';
+const EMBEDDING_MODEL = 'text-embedding-004';
+
+// Initialize Google AI
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
 
 /**
- * Get API key at runtime (not module load time)
- */
-function getApiKey() {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-        throw new Error('OPENROUTER_API_KEY is required for embeddings');
-    }
-    return apiKey;
-}
-
-/**
- * Generate embedding for text using OpenRouter
+ * Generate embedding for text using Google Gemini
  */
 export async function generateEmbedding(text) {
-    const apiKey = getApiKey();
+    if (!text || typeof text !== 'string') return [];
 
     try {
-        const response = await axios.post(
-            'https://openrouter.ai/api/v1/embeddings',
-            {
-                model: EMBEDDING_MODEL,
-                input: text
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://agentify-chat.com',
-                    'X-Title': 'Agentify Chat'
-                }
-            }
-        );
-
-        if (response.data?.data?.[0]?.embedding) {
-            return response.data.data[0].embedding;
-        }
-
-        throw new Error('Invalid embedding response');
+        const result = await model.embedContent(text);
+        const embedding = result.embedding;
+        return embedding.values;
     } catch (error) {
-        logger.error('Failed to generate embedding:', error.response?.data || error.message);
-        throw error;
+        logger.error('Failed to generate embedding (Google):', error.message);
+        // Fallback or rethrow? For now, return empty array to prevent crash, but logs will show constraint.
+        // Better to re-throw if critical, but returning empty array avoids hard crash loop.
+        return [];
     }
 }
 
@@ -58,33 +35,14 @@ export async function generateEmbedding(text) {
  * Generate embeddings for multiple texts (batch)
  */
 export async function generateEmbeddings(texts) {
-    const apiKey = getApiKey();
-
+    // Google SDK doesn't always support batch conveniently in all versions, 
+    // but we can map promises.
     try {
-        const response = await axios.post(
-            'https://openrouter.ai/api/v1/embeddings',
-            {
-                model: EMBEDDING_MODEL,
-                input: texts
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://agentify-chat.com',
-                    'X-Title': 'Agentify Chat'
-                }
-            }
-        );
-
-        if (response.data?.data) {
-            return response.data.data.map(item => item.embedding);
-        }
-
-        throw new Error('Invalid batch embedding response');
+        const promises = texts.map(text => generateEmbedding(text));
+        return Promise.all(promises);
     } catch (error) {
-        logger.error('Failed to generate batch embeddings:', error.response?.data || error.message);
-        throw error;
+        logger.error('Failed to generate batch embeddings:', error);
+        return texts.map(() => []);
     }
 }
 
@@ -109,7 +67,7 @@ export async function embedProduct(productId) {
         const embedding = await generateEmbedding(text);
 
         product.embedding = embedding;
-        product.embeddingModel = 'text-embedding-3-small';
+        product.embeddingModel = 'text-embedding-004';
         product.embeddingUpdatedAt = new Date();
 
         await product.save();

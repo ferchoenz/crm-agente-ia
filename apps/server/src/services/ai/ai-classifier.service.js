@@ -80,25 +80,34 @@ Responde SOLO con este JSON:
             const cleanJson = response.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
             try {
-                return JSON.parse(cleanJson);
-            } catch (parseError) {
-                logger.error('Cortex L1 JSON Parse Error. Raw response:', cleanJson);
-                // Fallback: try to find start/end of JSON
-                const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    try {
-                        return JSON.parse(jsonMatch[0]);
-                    } catch (e) { /* ignore */ }
+                try {
+                    const parsed = JSON.parse(cleanJson);
+                    // Validation
+                    if (!parsed.intent) {
+                        logger.warn('Cortex L1 returned JSON without intent:', parsed);
+                        parsed.intent = 'unknown';
+                    }
+                    return parsed;
+                } catch (parseError) {
+                    logger.error('Cortex L1 JSON Parse Error. Raw response:', cleanJson);
+                    // Fallback: try to find start/end of JSON
+                    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        try {
+                            const parsed = JSON.parse(jsonMatch[0]);
+                            if (!parsed.intent) parsed.intent = 'unknown';
+                            return parsed;
+                        } catch (e) { /* ignore */ }
+                    }
+                    throw parseError; // Re-throw to be caught by outer block
                 }
-                throw parseError; // Re-throw to be caught by outer block
-            }
 
-        } catch (error) {
-            logger.error('Cortex L1 Classification failed:', error);
-            return { intent: 'unknown', error: error.message };
+            } catch (error) {
+                logger.error('Cortex L1 Classification failed:', error);
+                return { intent: 'unknown', error: error.message };
+            }
         }
-    }
 }
 
-// Singleton
-export const aiClassifier = new AIClassifierService();
+    // Singleton
+    export const aiClassifier = new AIClassifierService();

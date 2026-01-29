@@ -23,22 +23,14 @@ export class ModelRouterService {
      */
     async initialize() {
         try {
-            // L1: Groq for fast, simple responses
-            this.providers.L1 = createGroqProvider();
-            if (this.providers.L1) {
-                logger.info('✓ Groq provider initialized (L1)');
-            }
+            // L1/L2: Legacy/Backup slots (Unused in Hybrid Brain architecture for now)
+            this.providers.L1 = null;
+            this.providers.L2 = null;
 
-            // L2: GPT-4o Mini for balanced responses (via OpenRouter)
-            this.providers.L2 = createGeminiProvider();
-            if (this.providers.L2) {
-                logger.info('✓ GPT-4o Mini provider initialized (L2)');
-            }
-
-            // L3: GPT-4.1 for complex reasoning (via OpenRouter)
+            // L3: Generator (GPT-4.1 via OpenRouter) - The Voice of the Agent
             this.providers.L3 = createOpenRouterProvider();
             if (this.providers.L3) {
-                logger.info('✓ GPT-4.1 provider initialized (L3)');
+                logger.info('✓ Generator Provider initialized (L3 - GPT-4.1)');
             }
 
             // Check at least one provider is available
@@ -141,11 +133,12 @@ export class ModelRouterService {
             context || {}
         );
 
-        // Build fallback order
+        // Hybrid Brain Architecture uses L3 directly.
+        // If specific level requested, try that, else default to L3.
         const fallbackOrder = {
-            'L1': ['L1', 'L2', 'L3'],
-            'L2': ['L2', 'L1', 'L3'],
-            'L3': ['L3', 'L2', 'L1']
+            'L1': ['L3'],
+            'L2': ['L3'],
+            'L3': []
         };
 
         const levelsToTry = fallbackOrder[requestedLevel] || ['L1', 'L2', 'L3'];
