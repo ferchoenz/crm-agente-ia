@@ -72,7 +72,7 @@ Responde SOLO con este JSON:
                 { role: 'user', content: message }
             ], {
                 temperature: 0, // Deterministic
-                model: 'gemini-2.0-flash-exp' // Fast & Smart
+                model: 'gemini-2.5-flash' // Fast & Smart (2025 Release)
             });
 
             const cleanJson = response.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
