@@ -424,6 +424,66 @@ export class AppointmentService {
             .sort({ startTime: 1 })
             .limit(3);
     }
+
+    /**
+     * Check if a specific slot is available (for Booking Safety)
+     */
+    async checkSlotAvailability(requestedDateTime) {
+        // Simple logic: get available days for this date and check slots
+        // This is a reuse of existing logic but optimized for single check
+        try {
+            const date = new Date(requestedDateTime);
+            const slots = await this.getAvailableSlots(date);
+
+            const reqTime = date.toTimeString().substring(0, 5); // HH:MM
+            const slot = slots.find(s => {
+                const sTime = s.start.toTimeString().substring(0, 5);
+                return sTime === reqTime;
+            });
+
+            if (slot) {
+                return { available: true };
+            } else {
+                return {
+                    available: false,
+                    message: 'El horario seleccionado ya no está disponible.'
+                };
+            }
+        } catch (e) {
+            logger.error('Slot check failed', e);
+            return { available: false, message: 'Error verificando disponibilidad.' };
+        }
+    }
+
+    /**
+     * Check for conflicting appointments for a customer
+     */
+    async checkCustomerConflicts(customerId, requestedDateTime) {
+        if (!customerId) return { hasConflict: false };
+
+        const date = new Date(requestedDateTime);
+        // Check window +/- 30 mins
+        const startWindow = new Date(date); startWindow.setMinutes(date.getMinutes() - 29);
+        const endWindow = new Date(date); endWindow.setMinutes(date.getMinutes() + 29);
+
+        const conflict = await Appointment.findOne({
+            organization: this.organizationId,
+            customer: customerId,
+            status: { $in: ['scheduled', 'confirmed'] },
+            startTime: { $gte: startWindow, $lte: endWindow }
+        });
+
+        if (conflict) {
+            const time = conflict.startTime.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+            return {
+                hasConflict: true,
+                existingTime: time,
+                message: `Ya tienes una cita a las ${time}.`
+            };
+        }
+
+        return { hasConflict: false };
+    }
 }
 
 /**

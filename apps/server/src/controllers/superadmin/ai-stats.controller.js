@@ -136,13 +136,15 @@ export const getOrganizationAIStats = async (req, res, next) => {
         const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const end = endDate ? new Date(endDate) : new Date();
 
+        const orgObjectId = new (await import('mongoose')).default.Types.ObjectId(organizationId);
+
         const summary = await AIUsage.getOrganizationSummary(organizationId, start, end);
 
         // Get daily trend for this org
         const dailyTrend = await AIUsage.aggregate([
             {
                 $match: {
-                    organization: new (await import('mongoose')).default.Types.ObjectId(organizationId),
+                    organization: orgObjectId,
                     date: { $gte: start, $lte: end }
                 }
             },
@@ -159,10 +161,48 @@ export const getOrganizationAIStats = async (req, res, next) => {
             { $sort: { _id: 1 } }
         ]);
 
+        // Get usage by provider for this org
+        const byProvider = await AIUsage.aggregate([
+            {
+                $match: {
+                    organization: orgObjectId,
+                    date: { $gte: start, $lte: end }
+                }
+            },
+            {
+                $group: {
+                    _id: '$provider',
+                    totalTokens: { $sum: '$totalTokens' },
+                    requestCount: { $sum: '$requestCount' },
+                    estimatedCost: { $sum: '$estimatedCost' }
+                }
+            }
+        ]);
+
+        // Get usage by level for this org
+        const byLevel = await AIUsage.aggregate([
+            {
+                $match: {
+                    organization: orgObjectId,
+                    date: { $gte: start, $lte: end }
+                }
+            },
+            {
+                $group: {
+                    _id: '$level',
+                    totalTokens: { $sum: '$totalTokens' },
+                    requestCount: { $sum: '$requestCount' },
+                    estimatedCost: { $sum: '$estimatedCost' }
+                }
+            }
+        ]);
+
         res.json({
             period: { start, end },
             summary,
-            dailyTrend
+            dailyTrend,
+            byProvider,
+            byLevel
         });
 
     } catch (error) {

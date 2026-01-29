@@ -203,6 +203,98 @@
         </div>
       </div>
     </div>
+        
+     <!-- AI Consumption Tab -->
+        <div v-if="activeTab === 'ai_consumption'" class="space-y-6">
+           <!-- Filters -->
+          <div class="flex justify-end gap-3">
+             <select v-model="aiDateRange" @change="loadAIStats" class="px-3 py-2 border border-slate-300 rounded-xl text-sm">
+              <option value="7">Últimos 7 días</option>
+              <option value="30">Últimos 30 días</option>
+              <option value="90">Últimos 90 días</option>
+            </select>
+            <button @click="loadAIStats" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 transition-colors">
+              <RefreshIcon class="w-4 h-4 inline mr-1" :class="{ 'animate-spin': loadingAI }" />
+              Actualizar
+            </button>
+          </div>
+
+          <!-- Totals Cards -->
+           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p class="text-slate-500 text-sm">Costo Estimado</p>
+              <p class="text-2xl font-bold text-amber-600">${{ formatCost(aiStats.summary?.totalCost) }}</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p class="text-slate-500 text-sm">Total Tokens</p>
+              <p class="text-2xl font-bold text-slate-800">{{ formatNumber(aiStats.summary?.totalTokens) }}</p>
+            </div>
+             <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p class="text-slate-500 text-sm">Requests</p>
+              <p class="text-2xl font-bold text-slate-800">{{ formatNumber(aiStats.summary?.totalRequests) }}</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p class="text-slate-500 text-sm">Mensajes</p>
+              <p class="text-2xl font-bold text-blue-600">{{ formatNumber((aiStats.summary?.totalMessagesReceived || 0) + (aiStats.summary?.totalMessagesSent || 0)) }}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+             <!-- By Provider -->
+             <div class="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                <h3 class="font-semibold text-slate-800 mb-4">Por Proveedor</h3>
+                 <div class="space-y-3">
+                   <div v-for="provider in aiStats.byProvider" :key="provider._id" class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
+                     <div class="flex items-center gap-3">
+                       <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="getProviderColor(provider._id)">
+                         <BotIcon class="w-4 h-4 text-white" />
+                       </div>
+                       <span class="font-medium capitalize">{{ provider._id }}</span>
+                     </div>
+                     <div class="text-right">
+                       <p class="font-semibold">{{ formatNumber(provider.requestCount) }} reqs</p>
+                       <p class="text-sm text-slate-500">${{ formatCost(provider.estimatedCost) }}</p>
+                     </div>
+                   </div>
+                   <div v-if="!aiStats.byProvider?.length" class="text-center text-slate-400 py-4">Sin datos</div>
+                 </div>
+             </div>
+
+             <!-- By Level -->
+             <div class="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                <h3 class="font-semibold text-slate-800 mb-4">Por Complejidad</h3>
+                 <div class="space-y-3">
+                   <div v-for="level in aiStats.byLevel" :key="level._id" class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
+                     <div class="flex items-center gap-3">
+                       <span class="px-2 py-1 rounded text-xs font-bold bg-slate-200 text-slate-700">{{ level._id }}</span>
+                       <span class="font-medium">{{ getLevelName(level._id) }}</span>
+                     </div>
+                     <div class="text-right">
+                       <p class="font-semibold">{{ formatNumber(level.totalTokens) }} tokens</p>
+                       <p class="text-sm text-slate-500">${{ formatCost(level.estimatedCost) }}</p>
+                     </div>
+                   </div>
+                      <div v-if="!aiStats.byLevel?.length" class="text-center text-slate-400 py-4">Sin datos</div>
+                 </div>
+             </div>
+          </div>
+
+           <!-- Daily Trend -->
+          <div class="bg-slate-50 rounded-xl border border-slate-200 p-6">
+             <h3 class="font-semibold text-slate-800 mb-4">Tendencia Diaria</h3>
+             <div class="overflow-x-auto">
+               <div class="flex gap-2 min-w-max">
+                 <div v-for="day in aiStats.dailyTrend" :key="day._id" class="flex flex-col items-center p-2 min-w-[60px]">
+                    <div class="h-24 w-4 bg-white rounded-full relative overflow-hidden flex items-end">
+                       <div class="w-full bg-primary-500 rounded-full" :style="{ height: getBarHeight(day.requestCount) }"></div>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-2">{{ formatDateShort(day._id) }}</div>
+                 </div>
+               </div>
+                <div v-if="!aiStats.dailyTrend?.length" class="text-center text-slate-400 py-8">Sin datos de tendencia</div>
+             </div>
+          </div>
+        </div>
 
     <!-- Reset Password Modal -->
     <div v-if="showResetModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
@@ -277,7 +369,9 @@ import {
   Key as KeyIcon,
   User as UserIcon,
   Trash2 as TrashIcon,
-  Copy as CopyIcon
+  Copy as CopyIcon,
+  Bot as BotIcon,
+  RefreshCw as RefreshIcon
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -294,10 +388,16 @@ const newPassword = ref('')
 const showResetModal = ref(false)
 const showBillingModal = ref(false)
 
+// AI Stats
+const aiStats = ref({})
+const aiDateRange = ref('30')
+const loadingAI = ref(false)
+
 const tabs = [
   { id: 'general', label: 'General' },
   { id: 'users', label: 'Usuarios' },
   { id: 'billing', label: 'Facturación' },
+  { id: 'ai_consumption', label: 'Consumo IA' },
   { id: 'stats', label: 'Estadísticas' },
   { id: 'actions', label: 'Acciones' }
 ]
@@ -329,8 +429,12 @@ async function loadOrganization() {
     editForm.plan = organization.value.plan
     editForm.active = organization.value.active
     
+    
     const billingRes = await api.get(`/superadmin/organizations/${route.params.id}/billing`)
     billing.value = billingRes.data.billing || { payments: [], currentBalance: 0 }
+
+    // Init load AI stats
+    loadAIStats()
   } catch (error) {
     console.error('Failed to load organization:', error)
   }
@@ -426,5 +530,46 @@ function formatCurrency(amount) {
 
 function formatDate(date) {
   return format(new Date(date), 'dd MMM yyyy', { locale: es })
+}
+
+// AI Helpers
+async function loadAIStats() {
+  loadingAI.value = true
+  try {
+     const days = parseInt(aiDateRange.value)
+     const startDate = new Date()
+     startDate.setDate(startDate.getDate() - days)
+
+     const res = await api.get(`/ai-stats/organization/${route.params.id}`, {
+       params: {
+         startDate: startDate.toISOString(),
+         endDate: new Date().toISOString()
+       }
+     })
+     aiStats.value = res.data
+  } catch (e) {
+    console.error('Error loading AI stats', e)
+  } finally {
+    loadingAI.value = false
+  }
+}
+
+function formatNumber(num) { return num ? new Intl.NumberFormat().format(num) : '0' }
+function formatCost(num) { return num ? num.toFixed(4) : '0.0000' }
+function formatDateShort(d) { return d ? format(new Date(d), 'dd MMM', { locale: es }) : '' }
+
+function getProviderColor(p) {
+  const map = { groq: 'bg-purple-500', gemini: 'bg-blue-500', deepseek: 'bg-emerald-500', openai: 'bg-slate-700' }
+  return map[p] || 'bg-slate-400'
+}
+
+function getLevelName(l) {
+  const map = { L1: 'Simple', L2: 'Contextual', L3: 'Complejo' }
+  return map[l] || l
+}
+
+function getBarHeight(count) {
+  const max = Math.max(...(aiStats.value.dailyTrend || []).map(d => d.requestCount), 1)
+  return `${Math.min((count / max) * 100, 100)}%`
 }
 </script>

@@ -51,7 +51,7 @@ export class OpenRouterProvider {
                 success: true
             };
         } catch (error) {
-            logger.error('OpenRouter API error:', error);
+            logger.error('OpenRouter API error:', error.response?.data || error.message);
             throw error;
         }
     }
