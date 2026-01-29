@@ -23,9 +23,14 @@ export class ModelRouterService {
      */
     async initialize() {
         try {
-            // L1/L2: Legacy/Backup slots (Unused in Hybrid Brain architecture for now)
+            // L1: Legacy/Backup slots
             this.providers.L1 = null;
-            this.providers.L2 = null;
+
+            // L2: Balancer (GPT-4o Mini via OpenRouter)
+            this.providers.L2 = createGeminiProvider();
+            if (this.providers.L2) {
+                logger.info('✓ Balancer Provider initialized (L2 - GPT-4o Mini)');
+            }
 
             // L3: Generator (GPT-4.1 via OpenRouter) - The Voice of the Agent
             this.providers.L3 = createOpenRouterProvider();
