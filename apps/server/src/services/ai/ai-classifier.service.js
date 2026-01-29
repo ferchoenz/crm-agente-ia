@@ -79,7 +79,7 @@ Time: ${timeContext}
                 const parsed = JSON.parse(cleanJson);
                 // Validation
                 if (!parsed.intent) {
-                    logger.warn('Cortex L1 returned JSON without intent:', parsed);
+                    logger.warn('Cortex L1 returned JSON without intent. Full object:', JSON.stringify(parsed));
                     parsed.intent = 'unknown';
                 }
                 return parsed;

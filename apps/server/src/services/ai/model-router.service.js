@@ -56,38 +56,9 @@ export class ModelRouterService {
      * L3: Objections, complex decisions, support
      */
     async classifyComplexity(message, context = {}) {
-        try {
-            // Lazy load vector router
-            const { vectorRouter } = await import('../../utils/vector-router.util.js');
-
-            // Get semantic classification (Intents only)
-            const match = await vectorRouter.classify(message, 'intent');
-            logger.info(`Semantic classification for "${message.slice(0, 30)}...": ${match.name} (${match.score.toFixed(2)})`);
-
-            // Map intent to complexity level
-            switch (match.name) {
-                case 'objection':
-                    return 'L3'; // Needs reasoning (DeepSeek)
-                case 'support':
-                    return 'L3'; // Needs problem solving (DeepSeek + Knowledge)
-                case 'purchase':
-                    return 'L2'; // Needs context/speed (Gemini)
-                case 'inquiry':
-                    return 'L2'; // General questions need context (Gemini)
-                case 'conversation':
-                    return 'L2'; // Ongoing dialog needs context (Gemini)
-                case 'greeting':
-                    return 'L1'; // Simple (Groq)
-                default:
-                    // Fallback to L2 for unknown intents (safer than L1)
-                    logger.debug(`Unknown intent, defaulting to L2`);
-                    return 'L2';
-            }
-        } catch (error) {
-            logger.warn('Semantic classification failed, falling back to L2:', error);
-            // Fallback to L2 (safer middle ground)
-            return 'L2';
-        }
+        // Semantic Router is deprecated in favor of Cortex L1 Controller.
+        // Always route to Generator (L3).
+        return 'L3';
     }
 
     /**
