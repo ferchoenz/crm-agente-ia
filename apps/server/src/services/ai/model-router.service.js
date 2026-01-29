@@ -157,6 +157,7 @@ export class ModelRouterService {
                     processingTime: responseTime
                 };
             } catch (error) {
+                logger.error(`Provider ${level} failed with error:`, error);
                 logger.warn(`Provider ${level} failed: ${error.message}, trying next...`);
                 lastError = error;
 
