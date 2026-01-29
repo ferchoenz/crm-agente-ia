@@ -408,6 +408,22 @@ export class AppointmentService {
 
         return targetDate;
     }
+    /**
+     * Find upcoming appointments for a customer (for rescheduling/cancellation)
+     */
+    async findCustomerAppointments(customerId) {
+        if (!customerId) return [];
+
+        const now = new Date();
+        return Appointment.find({
+            organization: this.organizationId,
+            customer: customerId,
+            status: 'scheduled',
+            startTime: { $gte: now }
+        })
+            .sort({ startTime: 1 })
+            .limit(3);
+    }
 }
 
 /**

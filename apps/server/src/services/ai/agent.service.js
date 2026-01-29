@@ -285,313 +285,172 @@ ${config.personality?.tone === 'formal' ? '- Formal y profesional (usar "usted")
     }
 
     /**
-     * Detect customer intent from message using Vector Router + Regex Fallback
-     */
-    async detectIntent(message) {
-        const lowerMessage = message.toLowerCase();
-
-        // PRIORITY: Check handoff FIRST (human request takes precedence)
-        const handoffKeywords = [
-            'humano', 'persona', 'agente', 'asesor', 'operador',
-            'hablar con alguien', 'persona real', 'representante',
-            'alguien más', 'otro agente', 'supervisor',
-            'no me entiendes', 'no entiendes', 'no me estás entendiendo',
-            'quiero hablar', 'necesito hablar', 'quiero un humano',
-            'pásame con', 'transfiéreme', 'escalame'
-        ];
-
-        if (handoffKeywords.some(keyword => lowerMessage.includes(keyword))) {
-            return 'human_handoff';
-        }
-
-        try {
-            // Lazy load vector router
-            const { vectorRouter } = await import('../../utils/vector-router.util.js');
-            const classification = await vectorRouter.classify(message);
-
-            logger.info(`Intent detected: ${classification.name} (${classification.score.toFixed(2)})`);
-
-            if (classification.name !== 'unknown') {
-                return classification.name;
-            }
-        } catch (error) {
-            logger.warn('Vector classification failed, falling back to regex:', error);
-        }
-
-        // Regex Fallback
-        const intents = {
-            greeting: ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hi', 'hello', 'qué tal'],
-            product_list: ['qué tienen', 'qué venden', 'productos', 'catálogo', 'qué ofrecen', 'servicios'],
-            inquiry: ['precio', 'costo', 'cuánto', 'disponible', 'información', 'características'],
-            purchase: ['comprar', 'quiero', 'me interesa', 'ordenar', 'pedir'],
-            appointment: ['cita', 'agendar', 'reservar', 'horario', 'disponibilidad'],
-            complaint: ['problema', 'queja', 'malo', 'reclamo', 'devolver']
-        };
-
-        for (const [intent, keywords] of Object.entries(intents)) {
-            if (keywords.some(keyword => lowerMessage.includes(keyword))) {
-                return intent;
-            }
-        }
-
-        return 'unknown';
-    }
-
-    /**
-     * Generate AI response for a message
+     * Generate AI response for a message using Hybrid Brain (Classifier -> Controller -> Generator)
      */
     async generateResponse(conversationId, customerMessage, customerId) {
         const startTime = Date.now();
+        let intent = 'unknown';
+        let entities = {};
+        let salesPhase = 'SITUATION';
+        let contextMessage = '';
+        let shouldHandoff = false;
+        let appointmentData = null;
 
         try {
-            // Fetch Customer Data
+            // 1. FETCH CUSTOMER & CONTEXT
             const customer = customerId ? await Customer.findById(customerId).lean() : null;
-
-            // Build messages array with Customer Context
-            const systemMessage = new SystemMessage(this.buildSystemPrompt(customer));
+            const conversation = await Conversation.findById(conversationId).select('context channel channelId').populate('channel', 'type').lean();
+            if (conversation?.context?.salesPhase) {
+                salesPhase = conversation.context.salesPhase;
+            }
             const history = await this.getConversationHistory(conversationId);
 
-            // Detect intent (Vector + Fallback)
-            const intent = await this.detectIntent(customerMessage);
+            // 2. CLASSIFY (Cortex L1 - Gemini)
+            const { aiClassifier } = await import('./ai-classifier.service.js');
+            const classification = await aiClassifier.classify(customerMessage, {
+                date: new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                time: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+            });
 
-            // DETECT SENTIMENT (Vector)
-            const { vectorRouter } = await import('../../utils/vector-router.util.js');
-            const sentimentMatch = await vectorRouter.classify(customerMessage, 'sentiment');
-            const sentiment = sentimentMatch.name;
+            intent = classification.intent;
+            entities = classification.entities || {};
+            logger.info(`🧠 Cortex L1 Intent: ${intent} | Date: ${entities.targetDate} | Time: ${entities.targetTime}`);
 
-            // Build context message
-            let contextMessage = '';
+            // 3. CONTROLLER (Logic & Actions)
+            switch (intent) {
+                case 'human_handoff':
+                    return {
+                        content: 'Entiendo. Voy a transferir tu conversación con un asesor humano para que te atienda personalmente. Espere un momento... 🙋‍♂️',
+                        intent,
+                        shouldHandoff: true,
+                        processingTime: Date.now() - startTime
+                    };
 
-            // Inject Sentiment Adjustments
-            if (sentiment === 'negative') {
-                contextMessage += `\n[⚠️ DETECCIÓN DE SENTIMIENTO: El cliente parece MOLESTO/FRUSTRADO. Tono obligatorio: Empático, ofrece disculpas cortas, no uses emojis felices, ve directo a la solución.]\n`;
-            } else if (sentiment === 'urgent') {
-                contextMessage += `\n[⚠️ DETECCIÓN DE SENTIMIENTO: El cliente tiene URGENCIA. Tono obligatorio: Directo, rápido, evita saludos largos, da la solución inmediata.]\n`;
-            } else if (sentiment === 'positive') {
-                contextMessage += `\n[✨ DETECCIÓN DE SENTIMIENTO: El cliente está FELIZ. Tono: Entusiasta, agradece la confianza, usa emojis positivos.]\n`;
-            }
-
-            // Get conversation for SPIN phase (or default to SITUATION)
-            const conversation = await Conversation.findById(conversationId).select('context').lean();
-            const currentPhase = conversation?.context?.salesPhase || 'SITUATION';
-
-            // Inject SPIN Phase Guidance
-            if (SPIN_PHASE_PROMPTS[currentPhase]) {
-                contextMessage += `\n${SPIN_PHASE_PROMPTS[currentPhase]}\n`;
-            }
-
-            // Inject LAER Framework for Objections (via semantic classification)
-            const intentMatch = await vectorRouter.classify(customerMessage, 'intent');
-            if (intentMatch.name === 'objection' && intentMatch.score > 0.6) {
-                contextMessage += `\n${LAER_PROMPT}\n`;
-            }
-
-            let products = [];
-
-            // PRODUCTS/SERVICES: Only add if intent is product-related
-            if (intent === 'inquiry' || intent === 'purchase' || intent === 'product_list') {
-                if (intent === 'product_list') {
-                    // Get all products for general queries
-                    products = await this.getAllProducts(5);
-                } else {
-                    // Search specific products
-                    products = await this.searchProducts(customerMessage, 5);
-                }
-
-                if (products.length > 0) {
-                    contextMessage += '\n\n[CATÁLOGO DISPONIBLE:\n' +
-                        products.map(p => {
-                            // Format price based on pricingType
-                            let priceStr = '';
-                            if (p.pricingType === 'quote') {
-                                priceStr = 'Cotizar';
-                                if (p.priceFactors?.length) {
-                                    priceStr += ` (depende de: ${p.priceFactors.join(', ')})`;
-                                }
-                            } else if (p.pricingType === 'from') {
-                                priceStr = `Desde $${p.priceFrom || p.price}`;
-                            } else if (p.pricingType === 'range' && p.priceRange) {
-                                priceStr = `$${p.priceRange.min} - $${p.priceRange.max}`;
+                case 'appointment_new':
+                case 'appointment_reschedule':
+                    if (this.appointmentService?.isEnabled()) {
+                        // Rescheduling logic
+                        if (intent === 'appointment_reschedule') {
+                            const existingApps = await this.appointmentService.findCustomerAppointments(customerId);
+                            if (existingApps.length > 0) {
+                                contextMessage += `\n[ℹ️ CITA EXISTENTE ENCONTRADA: ${existingApps[0].startTime}]\n`;
+                                // If user provided new date, we can proceed to suggest booking
                             } else {
-                                priceStr = `$${p.price}`;
+                                contextMessage += `\n[ℹ️ NO SE ENCONTRARON CITAS PREVIAS PARA REAGENDAR. TRATAR COMO NUEVA CITA]\n`;
                             }
+                        }
 
-                            // Build item line
-                            const typeLabel = p.itemType === 'service' ? '🔧' : '📦';
-                            let line = `${typeLabel} ${p.name}: ${priceStr}`;
-                            if (p.description) line += ` - ${p.description.slice(0, 80)}`;
-                            if (p.duration) line += ` | Tiempo: ${p.duration}`;
-                            if (p.itemType === 'product' && p.stock !== undefined && p.stock >= 0) {
-                                line += ` (Stock: ${p.stock})`;
-                            }
-                            return `- ${line}`;
-                        }).join('\n') +
-                        '\n]';
-                } else {
-                    contextMessage += '\n\n[CATÁLOGO: ninguno - No hay productos/servicios que coincidan]';
-                }
+                        // Check availability if date is requested
+                        if (entities.targetDate) {
+                            // Check specific availability logic could go here or fallback to general slots
+                        }
+
+                        const availableDays = await this.appointmentService.getAvailableDays(5);
+                        const slotsInfo = this.appointmentService.formatSlotsForAI(availableDays);
+                        contextMessage += `\n\n[📅 CITAS DISPONIBLES:\n${slotsInfo}\n\nINSTRUCCIONES PARA AGENDAR:\n1. Si el cliente dio fecha/hora (${entities.targetDate} ${entities.targetTime}) y está disponible, CONFIRMA con: [BOOK:${entities.targetDate || 'YYYY-MM-DD'} ${entities.targetTime || 'HH:MM'}]\n2. Si no, ofrece horarios.]`;
+                    } else {
+                        contextMessage += `\n[ℹ️ EL SISTEMA DE CITAS NO ESTÁ HABILITADO. Pide al cliente que contacte por teléfono.]`;
+                    }
+                    break;
+
+                case 'quote_request':
+                case 'product_info':
+                case 'inquiry': // Fallback for general product qs
+                    let products = [];
+                    if (intent === 'quote_request' || intent === 'product_info') {
+                        products = await this.searchProducts(customerMessage, 5);
+                    } else {
+                        products = await this.getAllProducts(5);
+                    }
+
+                    if (products.length > 0) {
+                        contextMessage += '\n\n[CATÁLOGO/PRECIOS:\n' + products.map(p => `- ${p.name}: $${p.price} (${p.description})`).join('\n') + ']';
+                    } else {
+                        contextMessage += '\n[NO HAY PRODUCTOS QUE COINCIDAN EXACTAMENTE]';
+                    }
+                    break;
+
+                case 'general_inquiry':
+                case 'unknown':
+                    // RAG Integration
+                    const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 3);
+                    const relevantChunks = knowledgeChunks.filter(chunk => chunk.score > 0.70);
+                    if (relevantChunks.length > 0) {
+                        contextMessage += `\n\n[CONOCIMIENTO DE EMPRESA:\n${relevantChunks.map(c => c.content).join('\n')}\n]`;
+                    }
+                    break;
             }
 
-            // KNOWLEDGE BASE (RAG): Search for relevant company info/policies
-            // Only inject if similarity is high enough to be truly relevant
-            const knowledgeChunks = await searchKnowledge(this.organizationId, customerMessage, 3);
-            const relevantChunks = knowledgeChunks.filter(chunk => chunk.score > 0.75); // Filter by relevance
-            if (relevantChunks.length > 0) {
-                const knowledgeContext = relevantChunks.map(chunk =>
-                    `- ${chunk.content.slice(0, 200)}` // Shorter excerpts
-                ).join('\n');
-                contextMessage += `\n\n[INFORMACIÓN DEL NEGOCIO (Referencia, NO citar textualmente):\n${knowledgeContext}\n]`;
+            // SPIN Phase Injection
+            if (SPIN_PHASE_PROMPTS[salesPhase]) {
+                contextMessage += `\n${SPIN_PHASE_PROMPTS[salesPhase]}\n`;
             }
 
-            // APPOINTMENTS: Handle appointment intent
-            let appointmentData = null;
-            if (intent === 'appointment' && this.appointmentService?.isEnabled()) {
-                try {
-                    const availableDays = await this.appointmentService.getAvailableDays(5);
-                    const slotsInfo = this.appointmentService.formatSlotsForAI(availableDays);
+            // 4. GENERATOR (Voice L2/L3 - GPT-4.1 via OpenRouter factory which we call 'createOpenRouterProvider' or utilize current config)
+            // Note: The system currently uses 'router.chat'. We will stick to it but ensure prompt is robust.
+            // Using GPT-4.1 for generation (assuming L3 provider is configured or forcing L3)
 
-                    contextMessage += `\n\n[📅 CITAS DISPONIBLES:
-${slotsInfo}
+            const systemMessage = new SystemMessage(this.buildSystemPrompt(customer));
+            // Inject analysis into system prompt or as context message? Context message is better.
 
-INSTRUCCIONES PARA AGENDAR:
-1. Muestra los horarios disponibles al cliente de forma amigable
-2. Pregunta qué día y hora le conviene
-3. Cuando el cliente confirme un horario específico, usa el formato: [BOOK:YYYY-MM-DD HH:MM]
-   Ejemplo: Si dice "el martes a las 10am" y hoy es lunes 21 de enero, responde con [BOOK:2026-01-22 10:00]
-4. Confirma la cita al cliente con la fecha y hora exacta
+            // Add Cortex Analysis to Context Logic
+            let logicContext = `\n[ANÁLISIS CORTEX]\nIntención: ${intent}\n`;
+            if (entities.targetDate) logicContext += `Fecha detectada: ${entities.targetDate}\n`;
+            if (entities.targetTime) logicContext += `Hora detectada: ${entities.targetTime}\n`;
 
-IMPORTANTE: 
-- Solo ofrece horarios que aparezcan en la lista de disponibles
-- Si el horario solicitado no está disponible, ofrece alternativas
-- Duración de cada cita: ${this.organization.appointmentsConfig?.defaultDuration || 60} minutos]`;
-                } catch (error) {
-                    logger.warn('Could not get appointment slots:', error.message);
-                }
-            }
-
-            // Handle human handoff
-            if (intent === 'human_handoff') {
-                return {
-                    content: 'Entiendo que prefieres hablar con un asesor. Voy a transferir tu conversación para que te atiendan personalmente. 🙋‍♂️',
-                    intent,
-                    shouldHandoff: true,
-                    processingTime: Date.now() - startTime
-                };
-            }
-
-            // Build final message
-            const humanMessage = new HumanMessage(
-                customerMessage + (contextMessage ? contextMessage : '')
-            );
-
+            const humanMessage = new HumanMessage(customerMessage + logicContext + contextMessage);
             const messages = [systemMessage, ...history, humanMessage];
-
-            // Generate response using router
-            const aiConfig = this.organization.aiConfig || {};
-            const forceLevel = aiConfig.routingMode === 'fixed' ? aiConfig.preferredLevel : null;
 
             const response = await this.router.chat(messages, {
                 message: customerMessage,
-                context: {
-                    organizationId: this.organizationId,
-                    conversationId,
-                    customerId,
-                    intent,
-                    hasProducts: products.length > 0
-                },
-                temperature: aiConfig.personality?.temperature || 0.7,
-                maxTokens: 400, // Increased to prevent truncation
-                forceLevel
+                context: { organizationId: this.organizationId, intent },
+                temperature: 0.7,
+                maxTokens: 500
             });
 
-            const processingTime = Date.now() - startTime;
-
-            // Detect Phase Transition from AI Response
+            // 5. POST-PROCESSING (Bookings, Phase Changes)
+            // Detect Phase Transition
             const phaseMatch = response.content.match(/\[PHASE:(\w+)\]/);
             if (phaseMatch) {
                 const newPhase = phaseMatch[1];
                 if (['ONBOARDING', 'SITUATION', 'PROBLEM', 'IMPLICATION', 'NEED_PAYOFF', 'CLOSING', 'COMPLETED'].includes(newPhase)) {
                     await Conversation.findByIdAndUpdate(conversationId, {
-                        $set: {
-                            'context.salesPhase': newPhase,
-                            'context.lastPhaseChangeAt': new Date()
-                        }
+                        $set: { 'context.salesPhase': newPhase, 'context.lastPhaseChangeAt': new Date() }
                     });
-                    logger.info(`SPIN Phase transitioned to ${newPhase} for conversation ${conversationId}`);
+                    salesPhase = newPhase;
                 }
-                // Remove the phase tag from the response shown to the customer
                 response.content = response.content.replace(/\[PHASE:\w+\]/g, '').trim();
             }
 
-            // Detect and process appointment booking from AI response
+            // Detect Booking Command
             const bookMatch = response.content.match(/\[BOOK:(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\]/);
             if (bookMatch && this.appointmentService?.isEnabled() && customerId) {
                 try {
                     const [_, dateStr, timeStr] = bookMatch;
                     const startTime = new Date(`${dateStr}T${timeStr}:00`);
-
-                    // Get conversation to determine channel
-                    const conv = await Conversation.findById(conversationId)
-                        .select('channel channelId')
-                        .populate('channel', 'type');
-
-                    // Create the appointment
                     const appointment = await this.appointmentService.createAppointment({
-                        customerId,
-                        conversationId,
-                        startTime,
-                        channel: conv?.channel?.type || 'whatsapp',
-                        channelId: conv?.channelId
+                        customerId, conversationId, startTime,
+                        channel: conversation?.channel?.type || 'whatsapp', channelId: conversation?.channelId
                     });
 
-                    // Get formatted confirmation message
-                    const config = this.organization.appointmentsConfig || {};
-                    let confirmationMsg = config.confirmationMessage ||
-                        '✅ ¡Tu cita ha sido agendada! Te esperamos el {date} a las {time}.';
+                    // Format nicely
+                    const dateFmt = startTime.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+                    const timeFmt = startTime.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-                    const formattedDate = startTime.toLocaleDateString('es-MX', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long'
-                    });
-                    const formattedTime = startTime.toLocaleTimeString('es-MX', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    });
+                    response.content = response.content.replace(bookMatch[0], '').trim();
+                    response.content += `\n\n✅ Cita confirmada para el ${dateFmt} a las ${timeFmt}. Te he enviado los detalles por correo.`; // The AI prompt should handle most, but this guarantees confirmation.
 
-                    confirmationMsg = confirmationMsg
-                        .replace('{date}', formattedDate)
-                        .replace('{time}', formattedTime);
-
-                    // Replace the booking tag with confirmation
-                    response.content = response.content
-                        .replace(/\[BOOK:\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\]/g, '')
-                        .trim();
-
-                    // Append confirmation if not already in the message
-                    if (!response.content.includes('agendada') && !response.content.includes('confirmada')) {
-                        response.content += '\n\n' + confirmationMsg;
-                    }
-
-                    appointmentData = {
-                        id: appointment._id,
-                        startTime: appointment.startTime,
-                        endTime: appointment.endTime
-                    };
-
-                    logger.info(`Appointment booked via AI: ${appointment._id} for ${dateStr} ${timeStr}`);
-                } catch (error) {
-                    logger.error('Error creating appointment from AI:', error);
-                    // Remove the booking tag even if failed
-                    response.content = response.content
-                        .replace(/\[BOOK:\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\]/g, '')
-                        .trim();
+                    appointmentData = { id: appointment._id, startTime };
+                    logger.info(`Appointment booked: ${appointment._id}`);
+                } catch (err) {
+                    logger.error('Booking failed:', err);
+                    response.content = response.content.replace(bookMatch[0], '').trim();
+                    response.content += "\n(Hubo un error técnico agendando la cita, por favor intenta en unos minutos o pide hablar con un humano).";
                 }
             }
 
-            // Extract customer data during ONBOARDING phase
-            if (currentPhase === 'ONBOARDING' && customerId) {
+            // Extract data if Onboarding
+            if (salesPhase === 'ONBOARDING' && customerId) {
                 await this.extractAndSaveCustomerData(customerId, customerMessage);
             }
 
@@ -600,15 +459,20 @@ IMPORTANTE:
                 intent,
                 model: response.model,
                 provider: response.provider,
-                shouldHandoff: false,
-                processingTime,
-                salesPhase: phaseMatch ? phaseMatch[1] : currentPhase,
+                shouldHandoff,
+                processingTime: Date.now() - startTime,
+                salesPhase,
                 appointment: appointmentData
             };
 
         } catch (error) {
-            logger.error('Error generating AI response:', error);
-            throw error;
+            logger.error('Hybrid Brain Error:', error);
+            // Fallback response
+            return {
+                content: "Disculpa, tuve un error procesando tu solicitud. ¿Podrías repetirlo?",
+                intent: 'error',
+                shouldHandoff: false
+            };
         }
     }
 
