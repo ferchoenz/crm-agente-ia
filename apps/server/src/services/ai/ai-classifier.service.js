@@ -72,11 +72,26 @@ Responde SOLO con este JSON:
                 { role: 'user', content: message }
             ], {
                 temperature: 0, // Deterministic
-                model: 'gemini-2.5-flash' // Fast & Smart (2025 Release)
+                model: 'gemini-2.5-flash', // Fast & Smart (2025 Release)
+                responseMimeType: 'application/json' // FORCE JSON
             });
 
+            // Clean potential markdown blocks just in case
             const cleanJson = response.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-            return JSON.parse(cleanJson);
+
+            try {
+                return JSON.parse(cleanJson);
+            } catch (parseError) {
+                logger.error('Cortex L1 JSON Parse Error. Raw response:', cleanJson);
+                // Fallback: try to find start/end of JSON
+                const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        return JSON.parse(jsonMatch[0]);
+                    } catch (e) { /* ignore */ }
+                }
+                throw parseError; // Re-throw to be caught by outer block
+            }
 
         } catch (error) {
             logger.error('Cortex L1 Classification failed:', error);

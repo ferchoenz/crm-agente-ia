@@ -36,6 +36,7 @@ export class GeminiProvider {
                 generationConfig: {
                     temperature: options.temperature || 0.7,
                     maxOutputTokens: options.maxTokens || 500,
+                    responseMimeType: options.responseMimeType
                 }
             };
 
